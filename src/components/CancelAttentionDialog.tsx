@@ -36,20 +36,20 @@ export const CancelAttentionDialog = ({
       </AlertDialogTrigger>
       <AlertDialogContent className="w-[95vw] sm:max-w-md">
         <AlertDialogHeader>
-          <AlertDialogTitle>¿Cancelar atención?</AlertDialogTitle>
+          <AlertDialogTitle>¿Cancelar sesión?</AlertDialogTitle>
           <AlertDialogDescription>
-            ¿Estás seguro de que quieres cancelar la atención de <strong>{clientName}</strong>? 
+            ¿Estás seguro de que quieres cancelar la sesión de <strong>{clientName}</strong>? 
             Esta acción no se puede deshacer.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>No, mantener atención</AlertDialogCancel>
+          <AlertDialogCancel>No, mantener sesión</AlertDialogCancel>
           <AlertDialogAction 
             onClick={handleCancel}
             disabled={cancelMutation.isPending}
             className="bg-red-600 hover:bg-red-700"
           >
-            Sí, cancelar atención
+            Sí, cancelar sesión
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

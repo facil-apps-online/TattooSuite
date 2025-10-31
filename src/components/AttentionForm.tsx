@@ -582,10 +582,10 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
 
       try {
         await createAttentionMutation.mutateAsync(payload);
-        toast({ title: "Éxito", description: "Atención creada correctamente.", variant: "success" });
+        toast({ title: "Éxito", description: "Sesión creada correctamente.", variant: "success" });
         onFinished();
       } catch (error: any) {
-        toast({ title: "Error al crear atención", description: error.message, variant: "destructive" });
+        toast({ title: "Error al crear sesión", description: error.message, variant: "destructive" });
       } finally {
         setIsSubmitting(false);
       }
@@ -662,7 +662,7 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
         </div>
         <div className="space-y-4">
           <div className={`flex ${isMobile ? 'flex-col gap-2' : 'items-center justify-between'}`}>
-            <Label>Items de la Atención</Label>
+            <Label>Items de la Sesión</Label>
             {isAttentionEditable && (
               <div className="flex gap-2 flex-wrap">
                 <Button type="button" onClick={() => addItem('service')} size="sm" variant="outline" disabled={!clientId || !attentionTime}><Plus className="w-4 h-4 mr-2" />Servicio</Button>
@@ -745,14 +745,14 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="notes">Notas de la Atención</Label>
+          <Label htmlFor="notes">Notas de la Sesión</Label>
           <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} disabled={!isAttentionEditable} />
         </div>
       </div>
       <DialogFooter className="fixed bottom-0 right-0 w-full bg-background pt-4 pb-4 pr-6">
         <Button type="button" variant="outline" onClick={onFinished}>Cancelar</Button>
         <Button type="submit" form="attention-form" disabled={isSubmitting || createAttentionMutation.isPending || updateAttentionItemsMutation.isPending || !clientId || !attentionDateTime || items.length === 0}>
-          {isEditMode ? 'Guardar Cambios' : 'Crear Atención'}
+          {isEditMode ? 'Guardar Cambios' : 'Crear Sesión'}
         </Button>
       </DialogFooter>
 

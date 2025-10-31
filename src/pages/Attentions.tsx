@@ -365,13 +365,13 @@ export default function Attentions() {
               size="sm"
             >
               <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline sm:ml-2">Nueva Atención</span>
+              <span className="hidden sm:inline sm:ml-2">Nueva Sesión</span>
             </Button>
           </span>
         </TooltipTrigger>
         {!branchIdForDialog && (
           <TooltipContent>
-            <p>Selecciona una sucursal para poder crear una atención.</p>
+            <p>Selecciona una sucursal para poder crear una sesión.</p>
           </TooltipContent>
         )}
       </Tooltip>
@@ -381,8 +381,8 @@ export default function Attentions() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Atenciones"
-        subtitle="Gestiona y programa las citas de tus clientes."
+        title="Sesiones"
+        subtitle="Gestiona y programa las sesiones de tus clientes."
       >
         {NewAttentionButton}
       </PageHeader>
@@ -390,7 +390,7 @@ export default function Attentions() {
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="w-[95%] max-h-[90vh] md:max-w-4xl flex flex-col">
           <DialogHeader>
-            <DialogTitle>{editingAttention ? 'Editar Atención' : 'Nueva Atención'}</DialogTitle>
+            <DialogTitle>{editingAttention ? 'Editar Sesión' : 'Nueva Sesión'}</DialogTitle>
           </DialogHeader>
           <div className="flex-grow overflow-y-auto -mx-6 px-6">
             <AttentionForm
@@ -409,7 +409,7 @@ export default function Attentions() {
         <TooltipProvider>
           <DialogContent className="max-w-2xl w-[95%] max-h-[90vh] md:w-full md:max-h-fit">
             <DialogHeader>
-              <DialogTitle>Detalle de la Atención</DialogTitle>
+              <DialogTitle>Detalle de la Sesión</DialogTitle>
             </DialogHeader>
             {viewingAttention && (
               <>
@@ -490,7 +490,7 @@ export default function Attentions() {
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center py-8">
                     <Calendar className="w-12 h-12 text-muted-foreground mb-4" />
-                    <p className="text-lg font-medium text-muted-foreground mb-2">No hay atenciones programadas.</p>
+                    <p className="text-lg font-medium text-muted-foreground mb-2">No hay sesiones programadas.</p>
                     <div className="mt-4">
                       {NewAttentionButton}
                     </div>
@@ -870,7 +870,7 @@ const AttentionCard = ({ attention, formatPrice, onEdit, onOpenPaymentDialog, sc
                 className="bg-green-500 hover:bg-green-600"
               >
                 <CheckCircle className="w-4 h-4 mr-2" />
-                Finalizar Atención
+                Finalizar Sesión
               </Button>
             )}
             {canPayAttention && (

@@ -120,7 +120,7 @@ export const RescheduleAttentionDialog = ({
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Reprogramar Atención</DialogTitle>
+          <DialogTitle>Reprogramar Sesión</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4 items-end">

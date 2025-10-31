@@ -184,7 +184,6 @@ const AuthPage: React.FC = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
-                      className="bg-gray-50"
                     />
                   </div>
                   <div className="space-y-2">
@@ -206,7 +205,6 @@ const AuthPage: React.FC = () => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      className="bg-gray-50"
                     />
                   </div>
                   <Button 

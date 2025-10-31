@@ -176,7 +176,7 @@ export const AttentionPaymentDialog: React.FC<AttentionPaymentDialogProps> = ({ 
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {paymentState === 'completed' ? 'Pago Completado' : 'Registrar Pago de Atención'}
+              {paymentState === 'completed' ? 'Pago Completado' : 'Registrar Pago de Sesión'}
             </DialogTitle>
           </DialogHeader>
           

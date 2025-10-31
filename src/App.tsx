@@ -85,7 +85,7 @@ function App() {
                 <Route path="/app" element={<Layout />}>
                   <Route index element={<Index />} /> {/* RUTA INDEX PARA LA PÁGINA DE INICIO */}
                   <Route path="profile-settings" element={<ProfileSettings />} />
-                  <Route path="attentions" element={<Attentions />} />
+                  <Route path="sessions" element={<Attentions />} />
                   <Route path="clients" element={<Clients />} />
                   <Route path="clients/:id" element={<ClientDetailPage />} />
                   <Route path="products" element={<Products />} />

@@ -29,6 +29,7 @@ import { PurchasesPage } from "@/pages/Inventory/PurchasesPage";
 import { TransfersPage } from "@/pages/Inventory/TransfersPage";
 import TimeOffManagementPage from "@/pages/TimeOffManagementPage";
 import TimeOffHistoryPage from "@/pages/TimeOffHistoryPage";
+import CommissionsPage from "@/pages/CommissionsPage";
 import EquipmentPage from "@/pages/EquipmentPage";
 import EditEquipmentPage from "@/pages/Equipments/EditEquipmentPage";
 
@@ -60,74 +61,73 @@ import UIKit from "@/pages/Dev/UIKit";
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider supabaseClient={supabase}>
-          <AppInitializer>
-            <Toaster position="bottom-right" />
-            <Routes>
-              {/* Rutas Públicas */}
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-              <Route path="/terms-of-service" element={<TermsOfService />} />
-              <Route path="/features" element={<FeaturesPage />} />
-              <Route path="/auth" element={<AuthPage />} />
-              <Route path="/register-tenant" element={<RegisterTenant />} />
-              <Route path="/update-password" element={<UpdatePasswordPage />} />
-              <Route path="/integrations/google/callback" element={<GoogleCallbackPage />} />
-              <Route path="/tv" element={<TvDisplayPage />} />
-              <Route path="/tv/:registrationCode" element={<TvDisplayPage />} />
+      <AuthProvider supabaseClient={supabase}>
+        <AppInitializer>
+          <Toaster position="bottom-right" />
+          <Routes>
+            {/* Rutas Públicas */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms-of-service" element={<TermsOfService />} />
+            <Route path="/features" element={<FeaturesPage />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/register-tenant" element={<RegisterTenant />} />
+            <Route path="/update-password" element={<UpdatePasswordPage />} />
+            <Route path="/integrations/google/callback" element={<GoogleCallbackPage />} />
+            <Route path="/tv" element={<TvDisplayPage />} />
+            <Route path="/tv/:registrationCode" element={<TvDisplayPage />} />
 
-              {/* Rutas Protegidas */}
-              <Route element={<ProtectedRoute />}>
-                <Route path="/register-tv/:registrationCode" element={<RegisterTvPage />} />
-                
-                {/* RUTA PADRE CON LAYOUT */}
-                <Route path="/app" element={<Layout />}>
-                  <Route index element={<Index />} /> {/* RUTA INDEX PARA LA PÁGINA DE INICIO */}
-                  <Route path="profile-settings" element={<ProfileSettings />} />
-                  <Route path="sessions" element={<Attentions />} />
-                  <Route path="clients" element={<Clients />} />
-                  <Route path="clients/:id" element={<ClientDetailPage />} />
-                  <Route path="products" element={<Products />} />
-                  <Route path="products/:id" element={<ProductEditPage />} />
-                  <Route path="combos" element={<Combos />} />
-                  <Route path="combos/edit/:id" element={<EditComboPage />} />
-                  <Route path="inventory">
-                    <Route index element={<Inventory />} />
-                    <Route path="suppliers" element={<SuppliersPage />} />
-                    <Route path="suppliers/edit/:id" element={<EditSupplierPage />} />
-                    <Route path="branch-products" element={<BranchProductsPage />} />
-                    <Route path="purchases" element={<PurchasesPage />} />
-                    <Route path="transfers" element={<TransfersPage />} />
-                  </Route>
-                  <Route path="services" element={<Services />} />
-                  <Route path="services/:id" element={<ServiceDetailPage />} />
-                  <Route path="team" element={<Team />} />
-                  <Route path="equipment">
-                    <Route index element={<EquipmentPage />} />
-                    <Route path="edit/:id" element={<EditEquipmentPage />} />
-                  </Route>
-                  <Route path="reports" element={<Reports />} />
-                  <Route path="settings" element={<Settings />} />
-                  <Route path="settings/tv-management" element={<TvManagementPage />} />
-                  <Route path="branches" element={<BranchesPage />} />
-                  <Route path="branches/new" element={<NewBranchPage />} />
-                  <Route path="branches/:branchId/edit" element={<EditBranchPage />} />
-                  <Route path="branches/:branchId/settings" element={<BranchSettingsPage />} />
-                  <Route path="translations" element={<TranslationAdmin />} />
-                  <Route path="time-off-management" element={<TimeOffManagementPage />} />
-                  <Route path="time-off-history" element={<TimeOffHistoryPage />} />
-                  
-                  {/* Ruta de desarrollo para el UI Kit */}
-                  <Route path="dev/uikit" element={<UIKit />} />
-
-                  <Route path="*" element={<NotFound />} />
+            {/* Rutas Protegidas */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/register-tv/:registrationCode" element={<RegisterTvPage />} />
+              
+              {/* RUTA PADRE CON LAYOUT */}
+              <Route path="/app" element={<Layout />}>
+                <Route index element={<Index />} /> {/* RUTA INDEX PARA LA PÁGINA DE INICIO */}
+                <Route path="profile-settings" element={<ProfileSettings />} />
+                <Route path="sessions" element={<Attentions />} />
+                <Route path="clients" element={<Clients />} />
+                <Route path="clients/:id" element={<ClientDetailPage />} />
+                <Route path="products" element={<Products />} />
+                <Route path="products/:id" element={<ProductEditPage />} />
+                <Route path="combos" element={<Combos />} />
+                <Route path="combos/edit/:id" element={<EditComboPage />} />
+                <Route path="inventory">
+                  <Route index element={<Inventory />} />
+                  <Route path="suppliers" element={<SuppliersPage />} />
+                  <Route path="suppliers/edit/:id" element={<EditSupplierPage />} />
+                  <Route path="branch-products" element={<BranchProductsPage />} />
+                  <Route path="purchases" element={<PurchasesPage />} />
+                  <Route path="transfers" element={<TransfersPage />} />
                 </Route>
+                <Route path="services" element={<Services />} />
+                <Route path="services/:id" element={<ServiceDetailPage />} />
+                <Route path="team" element={<Team />} />
+                <Route path="equipment">
+                  <Route index element={<EquipmentPage />} />
+                  <Route path="edit/:id" element={<EditEquipmentPage />} />
+                </Route>
+                <Route path="reports" element={<Reports />} />
+                <Route path="settings" element={<Settings />} />
+                <Route path="settings/tv-management" element={<TvManagementPage />} />
+                <Route path="branches" element={<BranchesPage />} />
+                <Route path="branches/new" element={<NewBranchPage />} />
+                <Route path="branches/:branchId/edit" element={<EditBranchPage />} />
+                <Route path="branches/:branchId/settings" element={<BranchSettingsPage />} />
+                <Route path="translations" element={<TranslationAdmin />} />
+                <Route path="time-off-management" element={<TimeOffManagementPage />} />
+                <Route path="time-off-history" element={<TimeOffHistoryPage />} />
+                <Route path="commissions" element={<CommissionsPage />} />
+                
+                {/* Ruta de desarrollo para el UI Kit */}
+                <Route path="dev/uikit" element={<UIKit />} />
+
+                <Route path="*" element={<NotFound />} />
               </Route>
-            </Routes>
-          </AppInitializer>
-        </AuthProvider>
-      </BrowserRouter>
+            </Route>
+          </Routes>
+        </AppInitializer>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

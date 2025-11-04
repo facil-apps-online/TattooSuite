@@ -5,14 +5,14 @@ import './index.css';
 import 'react-datepicker/dist/react-datepicker.css';
 import './lib/i18n';
 import { ThemeProvider } from '@/components/ThemeProvider';
-import { createClient } from '@supabase/supabase-js'; // Import Supabase client
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabaseClient'; // Import Supabase client
+
+const queryClient = new QueryClient();
 
 // Supabase client for error reporting
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY; // Use PUBLISHABLE_KEY for anon access
 const tattoosuitePlatformId = import.meta.env.VITE_TATTOOSUITE_PLATFORM_ID;
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Function to report errors to Supabase Edge Function
 const reportError = async (error: Error, info?: React.ErrorInfo) => {
@@ -88,16 +88,24 @@ window.onerror = (message, source, lineno, colno, error) => {
   return true;
 };
 
+import { BrowserRouter } from 'react-router-dom';
+
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ErrorBoundary>
-      <ThemeProvider 
-        attribute="class" 
-        defaultTheme="system" 
-        storageKey="tattoosuite-theme"
-      >
-        <App />
-      </ThemeProvider>
-    </ErrorBoundary>
+    <BrowserRouter>
+      <ErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider supabaseClient={supabase}>
+            <ThemeProvider 
+              attribute="class" 
+              defaultTheme="system" 
+              storageKey="tattoosuite-theme"
+            >
+              <App />
+            </ThemeProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </ErrorBoundary>
+    </BrowserRouter>
   </React.StrictMode>
 );

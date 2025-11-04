@@ -16,12 +16,12 @@ const SubscriptionPlans = () => {
 
   // Agrupar precios por plan y filtrar por el país del usuario
   const plansForUserCountry = useMemo(() => {
-    if (!allPrices || !user?.country_id) return [];
+    if (!allPlans || !user?.country_id) return [];
     
     // La RPC devuelve una fila por cada combinación de plan y país,
     // así que solo necesitamos filtrar por el país del usuario.
-    return allPrices.filter(price => price.country_id === user.country_id);
-  }, [allPrices, user?.country_id]);
+    return allPlans.filter(price => price.country_id === user.country_id);
+  }, [allPlans, user?.country_id]);
 
   const handleSelectPlan = async (planPriceId: string) => {
     setIsRedirecting(true);

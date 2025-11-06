@@ -11,10 +11,9 @@ import { AddressAutocompleteInput } from '@/components/AddressAutocompleteInput'
 import { MapDisplay } from '@/components/MapDisplay';
 import { Save, Store } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { SearchableSelect } from './ui/searchable-select';
-import { useTenantById } from '@/hooks/useTenants';
+import { FilterableSelect } from '@/components/FilterableSelect';
+import { useTenantSettingsData } from '@/hooks/useTenantSettingsData';
 import { PhoneInput } from '@/components/PhoneInput';
-import { usePublicRegistrationData } from '@/hooks/usePublicRegistrationData';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const formSchema = z.object({
@@ -46,9 +45,8 @@ export function BranchForm({ branchToEdit, onSuccess, tenantId }: BranchFormProp
   const { toast } = useToast();
   const createBranchMutation = useCreateBranch(tenantId);
   const updateBranchMutation = useUpdateBranch(tenantId);
-  const { data: tenant } = useTenantById(tenantId);
-  const { data: publicData } = usePublicRegistrationData();
-  const countries = publicData?.countries;
+  const { data: settingsData, isLoading: isLoadingSettings } = useTenantSettingsData(tenantId);
+  const { tenant, countries } = settingsData || {};
 
   const countryRestriction = useMemo(() => {
     if (!tenant?.country_id || !countries) return '';
@@ -86,9 +84,20 @@ export function BranchForm({ branchToEdit, onSuccess, tenantId }: BranchFormProp
 
   useEffect(() => {
     if (branchToEdit) {
+      let timezoneToSet = branchToEdit.timezone;
+      if (!timezoneToSet && tenant) {
+        timezoneToSet = tenant.default_timezone;
+      }
+      if (!timezoneToSet && countries && tenant?.country_id) {
+        const country = countries.find(c => c.id === tenant.country_id);
+        if (country?.timezones?.length > 0) {
+          timezoneToSet = country.timezones[0];
+        }
+      }
+
       form.reset({
         name: branchToEdit.name || '',
-        timezone: branchToEdit.timezone || '',
+        timezone: timezoneToSet || '',
         address: branchToEdit.address || '',
         contact_phone: branchToEdit.contact_phone || '',
         whatsapp_phone: branchToEdit.whatsapp_phone || '',
@@ -103,9 +112,16 @@ export function BranchForm({ branchToEdit, onSuccess, tenantId }: BranchFormProp
         longitude: branchToEdit.longitude || null,
       });
     } else if (tenant) {
-      form.setValue('timezone', tenant.default_timezone);
+      let timezoneToSet = tenant.default_timezone;
+      if (!timezoneToSet && countries && tenant?.country_id) {
+        const country = countries.find(c => c.id === tenant.country_id);
+        if (country?.timezones?.length > 0) {
+          timezoneToSet = country.timezones[0];
+        }
+      }
+      form.setValue('timezone', timezoneToSet);
     }
-  }, [branchToEdit, tenant, form]);
+  }, [branchToEdit, tenant, countries, form]);
 
   const handlePlaceSelected = (place: google.maps.places.PlaceResult) => {
     const get = (type: string) => place.address_components?.find(c => c.types.includes(type))?.long_name || '';
@@ -209,10 +225,10 @@ export function BranchForm({ branchToEdit, onSuccess, tenantId }: BranchFormProp
                   <Controller name="timezone" control={form.control} render={({ field }) => (
                     <FormItem className="flex flex-col">
                       <FormLabel>Zona Horaria</FormLabel>
-                      <SearchableSelect 
+                      <FilterableSelect 
                         options={timezoneOptions} 
-                        value={timezoneOptions.find(t => t.value === field.value) || null} 
-                        onChange={(option) => field.onChange(option ? option.value : '')} 
+                        value={field.value} 
+                        onValueChange={field.onChange} 
                         placeholder="Selecciona una zona horaria"
                       />
                       <FormMessage />

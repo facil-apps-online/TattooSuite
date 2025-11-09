@@ -35,6 +35,9 @@ import { AttentionPaymentDialog } from "@/components/AttentionPaymentDialog";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { usePaymentEvidence } from "@/hooks/usePaymentEvidence";
 import { ImagePreviewDialog } from "@/components/ImagePreviewDialog";
+import { FileText } from "lucide-react";
+import { useSignedConsentsForAttention, SignedConsent } from "@/hooks/useConsentTemplates";
+import { ExportInformedConsentDialog } from "@/components/attentions/ExportInformedConsentDialog";
 
 
 
@@ -99,6 +102,9 @@ export default function Attentions() {
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [payingAttention, setPayingAttention] = useState<Attention | null>(null);
   const [viewingEvidenceForPaymentIds, setViewingEvidenceForPaymentIds] = useState<string[] | null>(null);
+  const [isExportInformedConsentDialogOpen, setIsExportInformedConsentDialogOpen] = useState(false);
+  const [attentionToExportConsent, setAttentionToExportConsent] = useState<Attention | null>(null);
+  const [selectedSignedConsentToExport, setSelectedSignedConsentToExport] = useState<SignedConsent | null>(null);
 
 
   const [initialDate, setInitialDate] = useState<Date | undefined>(undefined);
@@ -334,6 +340,12 @@ export default function Attentions() {
     setIsFormOpen(true);
   };
 
+  const handleExportInformedConsent = (signedConsent: SignedConsent, attention: Attention) => {
+    setSelectedSignedConsentToExport(signedConsent);
+    setAttentionToExportConsent(attention);
+    setIsExportInformedConsentDialogOpen(true);
+  };
+
   const handleEditFromDetailView = () => {
     if (viewingAttention) {
       setEditingAttention(viewingAttention);
@@ -419,6 +431,7 @@ export default function Attentions() {
                     formatPrice={formatPrice}
                     onEdit={handleEditFromDetailView}
                     onOpenPaymentDialog={handleOpenPaymentDialog}
+                    onExportInformedConsent={handleExportInformedConsent}
                     screenSize={screenSize}
                     branchId={viewingAttention.branch_id}
                   />
@@ -437,6 +450,13 @@ export default function Attentions() {
         isOpen={isPaymentDialogOpen}
         onClose={() => setIsPaymentDialogOpen(false)}
         attention={payingAttention}
+      />
+
+      <ExportInformedConsentDialog
+        open={isExportInformedConsentDialogOpen}
+        onOpenChange={setIsExportInformedConsentDialogOpen}
+        signedConsent={selectedSignedConsentToExport}
+        attention={attentionToExportConsent}
       />
 
 
@@ -482,6 +502,7 @@ export default function Attentions() {
                     formatPrice={formatPrice} 
                     onEdit={handleEditAttention} 
                     onOpenPaymentDialog={handleOpenPaymentDialog}
+                    onExportInformedConsent={handleExportInformedConsent}
                     screenSize={screenSize} 
                     branchId={attention.branch_id} 
                   />
@@ -614,11 +635,13 @@ interface AttentionCardProps {
   formatPrice: (price: number) => string;
   onEdit: (attention: Attention) => void;
   onOpenPaymentDialog: (attention: Attention) => void;
+  onExportInformedConsent: (signedConsent: SignedConsent, attention: Attention) => void;
   screenSize: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   branchId: string;
 }
 
-const AttentionCard = ({ attention, formatPrice, onEdit, onOpenPaymentDialog, screenSize, branchId }: Omit<AttentionCardProps, 'onOpenPaymentDetails'>) => {
+const AttentionCard = ({ attention, formatPrice, onEdit, onOpenPaymentDialog, onExportInformedConsent, screenSize, branchId }: Omit<AttentionCardProps, 'onOpenPaymentDetails'>) => {
+  const { data: signedConsents } = useSignedConsentsForAttention(attention.id);
   const isMobile = screenSize === 'sm' || screenSize === 'md';
   const updateStatusMutation = useUpdateAttentionStatus();
 
@@ -716,6 +739,19 @@ const AttentionCard = ({ attention, formatPrice, onEdit, onOpenPaymentDialog, sc
             {attention.status === 'Pagada' && (
               <ViewTransactionButton attentionId={attention.id} />
             )}
+
+            {signedConsents && signedConsents.filter(sc => sc.signed_at).map(signedConsent => (
+              <Tooltip delayDuration={0} key={signedConsent.id}>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={() => onExportInformedConsent(signedConsent, attention)}>
+                    <FileText className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Ver Consentimiento Informado</p>
+                </TooltipContent>
+              </Tooltip>
+            ))}
 
                 <Tooltip delayDuration={0}>
                     <TooltipTrigger asChild>

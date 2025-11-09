@@ -1,13 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
-import { invokeTenantAction } from './useTenantUsers'; // Re-using invokeTenantAction
+import { invokeTenantAction } from './useTenantUsers';
 
 export interface TenantStorageUsage {
   totalSize: number; // Size in bytes
   storageLimit: number; // Limit in bytes
+  breakdown: {
+    table_name: string;
+    size: number;
+  }[];
 }
 
 const fetchTenantStorageUsage = async (tenantId: string): Promise<TenantStorageUsage> => {
-  if (!tenantId) return { totalSize: 0 };
+  if (!tenantId) {
+    return { totalSize: 0, storageLimit: 0, breakdown: [] };
+  }
+  // The backend action now returns the full object including the breakdown
   const response = await invokeTenantAction('get_tenant_storage_usage', { tenantId });
   return response;
 };

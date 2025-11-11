@@ -11,7 +11,7 @@ import { useBranches } from "@/hooks/useBranches";
 import {
   MasterService,
   BranchService,
-  useBranchServices,
+  useBranchServicesAndCombos,
   useAssignServiceToBranch,
   useUpdateBranchService,
   useRemoveServiceFromBranch

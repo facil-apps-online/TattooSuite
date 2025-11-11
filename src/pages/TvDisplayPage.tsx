@@ -70,43 +70,72 @@ const TvDisplayPage: React.FC = () => {
 
   useEffect(() => {
     const initializeTv = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        let tvData: TvDisplay | null = null;
-        if (registrationCode) {
-          const { data, error } = await supabase.rpc('get_tv_display_by_code', { p_registration_code: registrationCode });
-          if (error) throw error;
-          if (data && data.length > 0) {
-            tvData = data[0] as TvDisplay;
-            setTvDisplay(tvData);
-          } else {
-            // Si no se encuentra el código, podría ser un código antiguo o inválido.
-            // Opcionalmente, podríamos redirigir a la página de creación.
-            navigate('/tv');
+        const storedTvId = localStorage.getItem('tvDisplayId');
+
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/public-actions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'public_get_or_create_tv_display',
+            payload: { 
+              p_id: storedTvId,
+              p_registration_code: registrationCode 
+            },
+          }),
+        });
+
+        const tvData = await response.json();
+        if (!response.ok) {
+          throw new Error(tvData.error || 'Failed to initialize TV display');
+        }
+
+        if (tvData) {
+          localStorage.setItem('tvDisplayId', tvData.id);
+          if (registrationCode !== tvData.registration_code) {
+            navigate(`/tv/${tvData.registration_code}`, { replace: true });
           }
+          setTvDisplay(tvData);
         } else {
-          // No hay código de registro, así que creamos uno nuevo.
-          const { data, error } = await supabase.rpc('create_unregistered_tv');
-          if (error) throw error;
-          
-          const newTv = data as TvDisplay;
-          if (newTv && newTv.registration_code) {
-            navigate(`/tv/${newTv.registration_code}`, { replace: true });
-          } else {
-            throw new Error('No se pudo crear un nuevo registro de TV.');
-          }
+          localStorage.removeItem('tvDisplayId');
+          navigate('/tv', { replace: true });
         }
       } catch (err: any) {
         setError("Error al inicializar la TV: " + err.message);
       } finally {
-        // Solo dejamos de cargar si no estamos redirigiendo
-        if (registrationCode) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     };
 
     initializeTv();
   }, [registrationCode, navigate]);
+
+  useEffect(() => {
+    if (tvDisplay?.id) {
+      const tvChannel = supabase
+        .channel(`tv-display-${tvDisplay.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'tv_displays',
+            filter: `id=eq.${tvDisplay.id}`,
+          },
+          (payload) => {
+            console.log('TV Display updated!', payload);
+            setTvDisplay(payload.new as TvDisplay);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(tvChannel);
+      };
+    }
+  }, [tvDisplay?.id]);
 
   useEffect(() => {
     if (tvDisplay?.tenant_id) {
@@ -128,8 +157,18 @@ const TvDisplayPage: React.FC = () => {
 
   const fetchTurns = useCallback(async (branchId: string) => {
     try {
-      const { data, error } = await supabase.rpc('get_current_turns_for_branch', { p_branch_id: branchId });
-      if (error) throw error;
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/public-actions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'public_get_current_turns',
+          payload: { p_branch_id: branchId },
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch turns');
+      }
       setTurns(data as Turn[]);
     } catch (err: any) {
       console.error("Error fetching turns:", err.message);
@@ -138,9 +177,21 @@ const TvDisplayPage: React.FC = () => {
 
   const fetchPlaylistItems = useCallback(async (playlistId: string) => {
     try {
-      const { data, error } = await supabase.rpc('get_playlist_items', { p_playlist_id: playlistId });
-      if (error) throw error;
-      setPlaylistItems(data as PlaylistItem[]);
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/public-actions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'public_get_playlist_items',
+          payload: { p_playlist_id: playlistId },
+        }),
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        throw new Error(json.error || 'Failed to fetch playlist items');
+      }
+      setPlaylistItems(json as PlaylistItem[]);
     } catch (err: any) {
       console.error("Error fetching playlist items:", err.message);
     }
@@ -292,7 +343,7 @@ const TvDisplayPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-blue-600 to-purple-600 text-white p-8">
+      <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-gray-800 to-black text-gray-100 p-8">
         <img src="/tattoosuite.app.png" alt="TattooSuite Logo" className="w-48 mb-8 animate-pulse" />
         <h1 className="text-2xl font-bold">Cargando configuración de TV...</h1>
       </div>
@@ -309,13 +360,13 @@ const TvDisplayPage: React.FC = () => {
 
   if (!tvDisplay.is_registered) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-blue-600 to-purple-600 text-white p-8">
+      <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-gray-800 to-black text-gray-100 p-8">
         <img src="/tattoosuite.app.png" alt="TattooSuite Logo" className="w-48 mb-8" />
         <h1 className="text-4xl font-bold mb-4">Registra tu Pantalla</h1>
-        <p className="text-lg mb-8 text-center max-w-2xl">Escanea el código QR o introduce el código en la app.</p>
+        <p className="text-lg mb-8 text-center max-w-2xl text-gray-300">Escanea el código QR o introduce el código en la app.</p>
         
-        <div className="flex flex-col md:flex-row items-center gap-8 bg-white/10 backdrop-blur-sm p-8 rounded-2xl shadow-lg">
-          <div className="bg-white text-gray-900 p-6 rounded-lg shadow-lg text-6xl font-extrabold tracking-widest">
+        <div className="flex flex-col md:flex-row items-center gap-8 bg-gray-900/50 backdrop-blur-sm p-8 rounded-2xl shadow-lg">
+          <div className="bg-black text-white p-6 rounded-lg shadow-lg text-6xl font-extrabold tracking-widest">
             {tvDisplay.registration_code}
           </div>
           {tvDisplay.registration_code && (
@@ -325,34 +376,34 @@ const TvDisplayPage: React.FC = () => {
           )}
         </div>
 
-        <p className="text-md mt-8 text-center">Una vez registrada, la pantalla mostrará los turnos y el contenido asignado.</p>
+        <p className="text-md mt-8 text-center text-gray-400">Una vez registrada, la pantalla mostrará los turnos y el contenido asignado.</p>
       </div>
     );
   }
 
   return (
-      <div className="flex h-screen bg-gradient-to-br from-blue-700 to-purple-700 text-white">
-      <div className="w-2/3 p-8 flex flex-col items-center bg-black/10">
+      <div className="flex h-screen bg-gradient-to-br from-gray-800 to-black text-gray-100">
+      <div className="w-2/3 p-8 flex flex-col items-center bg-black/20">
         <img src={finalLogoUrl} alt="Logo" className="w-40 mb-8" />
         <h1 className="text-5xl font-bold mb-8">Turnos</h1>
         {turns.length === 0 ? (
           <div className="flex-grow flex items-center justify-center">
-            <p className="text-2xl text-white/70">No hay turnos en espera.</p>
+            <p className="text-2xl text-gray-500">No hay turnos en espera.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 w-full max-w-2xl">
             {turns.map((turn) => (
-              <div key={turn.id} className={`bg-white/10 backdrop-blur-md p-6 rounded-2xl shadow-lg flex justify-between items-center transition-all duration-300 ${turn.status === 'called' ? 'border-4 border-pink-500 animate-pulse' : 'border-4 border-transparent'}`}>
+              <div key={turn.id} className={`bg-gray-800/50 backdrop-blur-md p-6 rounded-2xl shadow-lg flex justify-between items-center transition-all duration-300 ${turn.status === 'called' ? 'border-4 border-yellow-400 animate-pulse' : 'border-4 border-transparent'}`}>
                 <div>
                   <p className="text-3xl font-semibold">{turn.clients?.name || 'N/A'}</p>
-                  <p className="text-xl text-white/80">con {turn.users?.first_name} {turn.users?.last_name || 'N/A'}</p>
+                  <p className="text-xl text-gray-300">con {turn.users?.first_name} {turn.users?.last_name || 'N/A'}</p>
                 </div>
                 <div className="text-right">
-                  <p className={`text-2xl font-bold ${turn.status === 'called' ? 'text-pink-400' : 'text-blue-300'}`}>
+                  <p className={`text-2xl font-bold ${turn.status === 'called' ? 'text-yellow-300' : 'text-gray-400'}`}>
                     {turn.status === 'waiting' ? 'En Espera' : 'Llamado'}
                   </p>
                   {turn.called_at && (
-                    <p className="text-sm text-white/60">Llamado a las {new Date(turn.called_at).toLocaleTimeString()}</p>
+                    <p className="text-sm text-gray-500">Llamado a las {new Date(turn.called_at).toLocaleTimeString()}</p>
                   )}
                 </div>
               </div>
@@ -361,12 +412,12 @@ const TvDisplayPage: React.FC = () => {
         )}
       </div>
 
-      <div className="w-1/3 bg-black/20 flex items-center justify-center relative">
+      <div className="w-1/3 bg-black/30 flex items-center justify-center relative">
         {renderMedia()}
         {!isSoundActivated && playlistItems.length > 0 && (
           <Button 
             onClick={handleActivateSound} 
-            className="absolute bottom-4 right-4 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg"
+            className="absolute bottom-4 right-4 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg shadow-lg"
           >
             Activar Sonido
           </Button>

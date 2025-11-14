@@ -274,6 +274,7 @@ export default function ClientDetailPage() {
               <div className="flex items-center">
                 {showLeftArrow && (
                     <Button
+                        type="button"
                         variant="outline"
                         size="icon"
                         className="h-8 w-8 rounded-full"
@@ -296,6 +297,7 @@ export default function ClientDetailPage() {
                 </div>
                 {showRightArrow && (
                     <Button
+                        type="button"
                         variant="outline"
                         size="icon"
                         className="h-8 w-8 rounded-full"

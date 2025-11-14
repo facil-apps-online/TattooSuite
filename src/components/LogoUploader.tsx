@@ -9,18 +9,18 @@ import { ImageIcon, Upload, X } from 'lucide-react';
 
 interface LogoUploaderProps {
   initialLogoUrl?: string | null;
-  onUploadSuccess: (newFileId: string) => void;
+  onSaveSuccess: () => void;
 }
 
-export const LogoUploader: React.FC<LogoUploaderProps> = ({ initialLogoUrl, onUploadSuccess }) => {
-  const { currentAssignment, tenant } = useAuth();
+export const LogoUploader: React.FC<LogoUploaderProps> = ({ initialLogoUrl, onSaveSuccess }) => {
+  const { tenant } = useAuth();
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { displayUrl: currentLogoUrl } = useGoogleDriveImage(initialLogoUrl);
+  const { displayUrl: currentLogoUrl, isLoading: isLogoLoading } = useGoogleDriveImage(initialLogoUrl);
 
   useEffect(() => {
     if (selectedFile) {
@@ -44,22 +44,22 @@ export const LogoUploader: React.FC<LogoUploaderProps> = ({ initialLogoUrl, onUp
     reader.onerror = (error) => reject(error);
   });
 
-  const handleUpload = async () => {
-    if (!selectedFile || !currentAssignment) return;
+  const handleSave = async () => {
+    if (!selectedFile || !tenant) return;
 
     setIsUploading(true);
     try {
       const base64data = await readFileAsBase64(selectedFile);
-      const fileName = `tenant_logo_${currentAssignment.tenant_id}.${selectedFile.name.split('.').pop()}`;
+      const fileName = `tenant_logo_${tenant.id}.${selectedFile.name.split('.').pop()}`;
       
       const { data: uploadData, error: uploadError } = await supabase.functions.invoke('google-drive-upload', {
         body: {
-          tenantId: currentAssignment.tenant_id,
+          tenantId: tenant.id,
           fileName: fileName,
           fileBase64: base64data,
           mimeType: selectedFile.type,
           uploadContext: 'TenantLogo',
-          contextId: currentAssignment.tenant_id
+          contextId: tenant.id
         }
       });
 
@@ -67,9 +67,23 @@ export const LogoUploader: React.FC<LogoUploaderProps> = ({ initialLogoUrl, onUp
         throw new Error(uploadError?.message || uploadData.error || 'Error al subir el logo.');
       }
 
+      // If an old logo was replaced, delete it from Google Drive
+      if (uploadData.oldFileId) {
+        console.log(`Deleting old logo file: ${uploadData.oldFileId}`);
+        const { error: deleteError } = await supabase.functions.invoke('google-drive-delete', {
+          body: { 
+            fileId: uploadData.oldFileId, 
+            tenantId: tenant.id,
+          }
+        });
+        if (deleteError) {
+          console.error('Error deleting old logo from Google Drive:', deleteError.message);
+        }
+      }
+
       toast({ title: 'Éxito', description: 'Logo actualizado correctamente.', variant: 'success' });
-      onUploadSuccess(uploadData.fileId);
       setSelectedFile(null);
+      onSaveSuccess();
 
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -83,7 +97,9 @@ export const LogoUploader: React.FC<LogoUploaderProps> = ({ initialLogoUrl, onUp
   return (
     <Card className="p-4 space-y-4">
       <div className="w-48 h-48 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted/50 mx-auto">
-        {finalImageUrl ? (
+        {isLogoLoading ? (
+          <p>Cargando...</p>
+        ) : finalImageUrl ? (
           <img src={finalImageUrl} alt="Logo Preview" className="max-w-full max-h-full object-contain" />
         ) : (
           <div className="text-center text-muted-foreground">
@@ -108,7 +124,7 @@ export const LogoUploader: React.FC<LogoUploaderProps> = ({ initialLogoUrl, onUp
         </Button>
         {selectedFile && (
           <>
-            <Button type="button" onClick={handleUpload} disabled={isUploading}>
+            <Button type="button" onClick={handleSave} disabled={isUploading}>
               <Upload className="mr-2 h-4 w-4" />
               {isUploading ? 'Guardando...' : 'Guardar'}
             </Button>

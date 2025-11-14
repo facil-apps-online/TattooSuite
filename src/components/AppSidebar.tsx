@@ -12,7 +12,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Building2, Scissors, HardDrive } from "lucide-react";
+import { Building2, Syringe, HardDrive } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranches } from "@/hooks/useBranches";
 import { useGoogleDriveImage } from "@/hooks/useGoogleDriveImage";
@@ -147,7 +147,7 @@ export function AppSidebar({ menuConfig, homeUrl = "/", title = "TattooSuite.app
                   />
                 ) : (
                   <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                    <Scissors className="size-4" />
+                    <Syringe className="size-4" />
                   </div>
                 )}
                 <div className="grid flex-1 text-left text-sm leading-tight">

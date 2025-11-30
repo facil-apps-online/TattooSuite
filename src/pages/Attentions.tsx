@@ -38,6 +38,7 @@ import { ImagePreviewDialog } from "@/components/ImagePreviewDialog";
 import { FileText } from "lucide-react";
 import { useSignedConsentsForAttention, SignedConsent } from "@/hooks/useConsentTemplates";
 import { ExportInformedConsentDialog } from "@/components/attentions/ExportInformedConsentDialog";
+import { Input } from "@/components/ui/input";
 
 
 
@@ -105,7 +106,6 @@ export default function Attentions() {
   const [isExportInformedConsentDialogOpen, setIsExportInformedConsentDialogOpen] = useState(false);
   const [attentionToExportConsent, setAttentionToExportConsent] = useState<Attention | null>(null);
   const [selectedSignedConsentToExport, setSelectedSignedConsentToExport] = useState<SignedConsent | null>(null);
-
 
   const [initialDate, setInitialDate] = useState<Date | undefined>(undefined);
   const { selectedBranchId } = useBranchFilterStore();
@@ -640,10 +640,23 @@ interface AttentionCardProps {
   branchId: string;
 }
 
-const AttentionCard = ({ attention, formatPrice, onEdit, onOpenPaymentDialog, onExportInformedConsent, screenSize, branchId }: Omit<AttentionCardProps, 'onOpenPaymentDetails'>) => {
-  const { data: signedConsents } = useSignedConsentsForAttention(attention.id);
+const AttentionCard = ({ attention, formatPrice, onEdit, onOpenPaymentDialog, onExportInformedConsent, screenSize, branchId }: AttentionCardProps) => {
+  const { currentAssignment } = useAuth();
+  const { toast } = useToast();
   const isMobile = screenSize === 'sm' || screenSize === 'md';
   const updateStatusMutation = useUpdateAttentionStatus();
+  const { data: signedConsents } = useSignedConsentsForAttention(attention.id);
+
+  const userRole = currentAssignment?.role_name;
+  const canSeeSurveyLink = ['tenant_super_admin', 'tenant_admin'].includes(userRole ?? '') && attention.survey_status !== 'completed';
+  const surveyLink = attention.survey_token ? `${window.location.origin}/survey/${attention.survey_token}` : null;
+
+  const copyToClipboard = () => {
+    if (surveyLink) {
+      navigator.clipboard.writeText(surveyLink);
+      toast({ title: "Enlace copiado", description: "El enlace a la encuesta ha sido copiado al portapapeles." });
+    }
+  };
 
   const attentionDate = useMemo(() => {
     if (!attention.attention_datetime) return null;
@@ -936,6 +949,18 @@ const AttentionCard = ({ attention, formatPrice, onEdit, onOpenPaymentDialog, on
           <div className="text-sm">
             <span className="text-muted-foreground">Notas:</span>
             <p>{attention.notes}</p>
+          </div>
+        )}
+
+        {canSeeSurveyLink && surveyLink && (
+          <div className="pt-4 border-t mt-4">
+            <h4 className="text-sm font-semibold mb-2 flex items-center gap-2"><Link className="w-4 h-4" />Enlace de la Encuesta</h4>
+            <div className="flex items-center gap-2">
+              <Input value={surveyLink} readOnly className="text-sm h-8" />
+              <Button variant="outline" size="sm" onClick={copyToClipboard}>
+                Copiar
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>

@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Calendar, Clock, User, Scissors, Phone, DollarSign, LayoutList, CalendarDays, Trash2, Package, Edit, CheckCircle, CreditCard, Calendar as CalendarIcon, Receipt, Eye, Loader2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Plus, Calendar, Clock, User, Scissors, Phone, DollarSign, LayoutList, CalendarDays, Trash2, Package, Edit, CheckCircle, CreditCard, Calendar as CalendarIcon, Receipt, Eye, Loader2, FileText, Link } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { callTenantAction } from '@/lib/tenantActions';
 import { TransactionReceiptDialog } from '@/components/TransactionReceiptDialog';
 import { useSaleDetails } from '@/hooks/useSaleDetails';
@@ -36,11 +36,12 @@ import { AttentionPaymentDialog } from "@/components/AttentionPaymentDialog";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { usePaymentEvidence } from "@/hooks/usePaymentEvidence";
 import { ImagePreviewDialog } from "@/components/ImagePreviewDialog";
-import { FileText } from "lucide-react";
-import { useSignedConsentsForAttention, SignedConsent } from "@/hooks/useConsentTemplates";
 import { ExportInformedConsentDialog } from "@/components/attentions/ExportInformedConsentDialog";
-import { Input } from "@/components/ui/input";
-
+import { useSignedConsentsForAttention, SignedConsent } from "@/hooks/useConsentTemplates";
+import { FillFormInstanceDialog } from "@/components/FillFormInstanceDialog";
+import { ViewFichaTecnicaDialog } from "@/components/ViewFichaTecnicaDialog";
+import { useClientDocumentTemplates, useGetClientDocumentInstances, ClientDocumentTemplate, ClientDocumentInstance } from "@/hooks/useClientDocumentTemplates";
+import { FilePlus } from "lucide-react";
 
 
 const generateColorPalette = (count: number) => {
@@ -107,6 +108,7 @@ export default function Attentions() {
   const [isExportInformedConsentDialogOpen, setIsExportInformedConsentDialogOpen] = useState(false);
   const [attentionToExportConsent, setAttentionToExportConsent] = useState<Attention | null>(null);
   const [selectedSignedConsentToExport, setSelectedSignedConsentToExport] = useState<SignedConsent | null>(null);
+
 
   const [initialDate, setInitialDate] = useState<Date | undefined>(undefined);
   const { selectedBranchId } = useBranchFilterStore();
@@ -341,12 +343,6 @@ export default function Attentions() {
     setIsFormOpen(true);
   };
 
-  const handleExportInformedConsent = (signedConsent: SignedConsent, attention: Attention) => {
-    setSelectedSignedConsentToExport(signedConsent);
-    setAttentionToExportConsent(attention);
-    setIsExportInformedConsentDialogOpen(true);
-  };
-
   const handleEditFromDetailView = () => {
     if (viewingAttention) {
       setEditingAttention(viewingAttention);
@@ -364,6 +360,12 @@ export default function Attentions() {
     setViewingPaymentsFor(attention);
   };
 
+  const handleExportInformedConsent = (signedConsent: SignedConsent, attention: Attention) => {
+    setSelectedSignedConsentToExport(signedConsent);
+    setAttentionToExportConsent(attention); // Keep attention for PDF generation context
+    setIsExportInformedConsentDialogOpen(true);
+  };
+
   const isMobile = screenSize === 'sm' || screenSize === 'md';
 
   const NewAttentionButton = (
@@ -378,13 +380,13 @@ export default function Attentions() {
               size="sm"
             >
               <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline sm:ml-2">Nueva Sesión</span>
+              <span className="hidden sm:inline sm:ml-2">Nueva Atención</span>
             </Button>
           </span>
         </TooltipTrigger>
         {!branchIdForDialog && (
           <TooltipContent>
-            <p>Selecciona una sucursal para poder crear una sesión.</p>
+            <p>Selecciona una sucursal para poder crear una atención.</p>
           </TooltipContent>
         )}
       </Tooltip>
@@ -394,8 +396,8 @@ export default function Attentions() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Sesiones"
-        subtitle="Gestiona y programa las sesiones de tus clientes."
+        title="Atenciones"
+        subtitle="Gestiona y programa las citas de tus clientes."
       >
         {NewAttentionButton}
       </PageHeader>
@@ -403,7 +405,7 @@ export default function Attentions() {
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="w-[95%] max-h-[90vh] md:max-w-4xl flex flex-col">
           <DialogHeader>
-            <DialogTitle>{editingAttention ? 'Editar Sesión' : 'Nueva Sesión'}</DialogTitle>
+            <DialogTitle>{editingAttention ? 'Editar Atención' : 'Nueva Atención'}</DialogTitle>
           </DialogHeader>
           <div className="flex-grow overflow-y-auto -mx-6 px-6">
             <AttentionForm
@@ -422,7 +424,7 @@ export default function Attentions() {
         <TooltipProvider>
           <DialogContent className="max-w-2xl w-[95%] max-h-[90vh] md:w-full md:max-h-fit">
             <DialogHeader>
-              <DialogTitle>Detalle de la Sesión</DialogTitle>
+              <DialogTitle>Detalle de la Atención</DialogTitle>
             </DialogHeader>
             {viewingAttention && (
               <>
@@ -459,8 +461,6 @@ export default function Attentions() {
         signedConsent={selectedSignedConsentToExport}
         attention={attentionToExportConsent}
       />
-
-
 
       {viewingEvidenceForPaymentIds && (
           <EvidencePreview paymentIds={viewingEvidenceForPaymentIds} onClose={() => setViewingEvidenceForPaymentIds(null)} />
@@ -512,7 +512,7 @@ export default function Attentions() {
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center py-8">
                     <Calendar className="w-12 h-12 text-muted-foreground mb-4" />
-                    <p className="text-lg font-medium text-muted-foreground mb-2">No hay sesiones programadas.</p>
+                    <p className="text-lg font-medium text-muted-foreground mb-2">No hay atenciones programadas.</p>
                     <div className="mt-4">
                       {NewAttentionButton}
                     </div>
@@ -641,12 +641,41 @@ interface AttentionCardProps {
   branchId: string;
 }
 
+
+// ... (previous code in Attentions.tsx) ...
+
 const AttentionCard = ({ attention, formatPrice, onEdit, onOpenPaymentDialog, onExportInformedConsent, screenSize, branchId }: AttentionCardProps) => {
   const { currentAssignment } = useAuth();
   const { toast } = useToast();
   const isMobile = screenSize === 'sm' || screenSize === 'md';
   const updateStatusMutation = useUpdateAttentionStatus();
   const { data: signedConsents } = useSignedConsentsForAttention(attention.id);
+
+  // State for Fichas Técnicas
+  const [isFillFormOpen, setIsFillFormOpen] = useState(false);
+  const [isViewFormOpen, setIsViewFormOpen] = useState(false);
+  const [selectedTemplateToFill, setSelectedTemplateToFill] = useState<ClientDocumentTemplate | null>(null);
+  const [selectedInstanceToView, setSelectedInstanceToView] = useState<ClientDocumentInstance | null>(null);
+
+  // Fetching data for Fichas Técnicas
+  const { data: allTemplates } = useClientDocumentTemplates();
+  const { data: filledInstances } = useGetClientDocumentInstances({ attentionId: attention.id, clientId: attention.client_id });
+
+  const fillableTemplates = useMemo(() => {
+    if (!allTemplates) return [];
+    const filledTemplateIds = new Set(filledInstances?.map(i => i.template_id));
+    return allTemplates.filter(t => t.fill_on_attention && !filledTemplateIds.has(t.id));
+  }, [allTemplates, filledInstances]);
+
+  const handleOpenFillFormDialog = (template: ClientDocumentTemplate) => {
+    setSelectedTemplateToFill(template);
+    setIsFillFormOpen(true);
+  };
+
+  const handleOpenViewFormDialog = (instance: ClientDocumentInstance) => {
+    setSelectedInstanceToView(instance);
+    setIsViewFormOpen(true);
+  };
 
   const userRole = currentAssignment?.role_name;
   const canSeeSurveyLink = ['tenant_super_admin', 'tenant_admin'].includes(userRole ?? '') && attention.survey_status !== 'completed';
@@ -727,7 +756,10 @@ const AttentionCard = ({ attention, formatPrice, onEdit, onOpenPaymentDialog, on
   };
 
   return (
-    <Card className="overflow-hidden">
+    <>
+      <FillFormInstanceDialog open={isFillFormOpen} onOpenChange={setIsFillFormOpen} template={selectedTemplateToFill} attention={attention} />
+      <ViewFichaTecnicaDialog open={isViewFormOpen} onOpenChange={setIsViewFormOpen} instance={selectedInstanceToView} />
+      <Card className="overflow-hidden">
       <CardHeader className="pb-4">
         <div className="flex flex-wrap justify-between items-start gap-4">
           <div className="space-y-1">
@@ -922,7 +954,7 @@ const AttentionCard = ({ attention, formatPrice, onEdit, onOpenPaymentDialog, on
                 className="bg-green-500 hover:bg-green-600"
               >
                 <CheckCircle className="w-4 h-4 mr-2" />
-                Finalizar Sesión
+                Finalizar Atención
               </Button>
             )}
             {canPayAttention && (
@@ -954,6 +986,24 @@ const AttentionCard = ({ attention, formatPrice, onEdit, onOpenPaymentDialog, on
             <p>{attention.notes}</p>
           </div>
         )}
+        
+        {(fillableTemplates.length > 0 || (filledInstances && filledInstances.length > 0)) && (
+            <div className="pt-4 border-t mt-4">
+                <h4 className="text-sm font-semibold mb-2 flex items-center gap-2"><FilePlus className="w-4 h-4" />Fichas Técnicas</h4>
+                <div className="flex flex-wrap gap-2">
+                    {filledInstances?.map(instance => (
+                        <Button key={instance.id} variant="outline" size="sm" onClick={() => handleOpenViewFormDialog(instance)}>
+                            Ver: {instance.template.name}
+                        </Button>
+                    ))}
+                    {fillableTemplates.map(template => (
+                        <Button key={template.id} variant="default" size="sm" onClick={() => handleOpenFillFormDialog(template)}>
+                            Llenar: {template.name}
+                        </Button>
+                    ))}
+                </div>
+            </div>
+        )}
 
         {canSeeSurveyLink && surveyLink && (
           <div className="pt-4 border-t mt-4">
@@ -968,5 +1018,6 @@ const AttentionCard = ({ attention, formatPrice, onEdit, onOpenPaymentDialog, on
         )}
       </CardContent>
     </Card>
+    </>
   );
 };

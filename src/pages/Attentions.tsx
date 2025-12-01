@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Calendar, Clock, User, Scissors, Phone, DollarSign, LayoutList, CalendarDays, Trash2, Package, Edit, CheckCircle, CreditCard, Calendar as CalendarIcon, Receipt, Eye, Loader2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { callTenantAction } from '@/lib/tenantActions';
 import { TransactionReceiptDialog } from '@/components/TransactionReceiptDialog';
 import { useSaleDetails } from '@/hooks/useSaleDetails';
@@ -837,6 +838,7 @@ const AttentionCard = ({ attention, formatPrice, onEdit, onOpenPaymentDialog, on
                                             is_parallel={service.is_parallel}
                                             screenSize={screenSize}
                                             branchId={branchId}
+                                            surveyRating={service.survey_rating}
                                         />
                                     ))}
                                     {comboProducts.map((product, productIndex) => (
@@ -881,6 +883,7 @@ const AttentionCard = ({ attention, formatPrice, onEdit, onOpenPaymentDialog, on
                                 is_parallel={service.is_parallel}
                                 screenSize={screenSize}
                                 branchId={branchId}
+                                surveyRating={service.survey_rating}
                             />
                         );
                     })}

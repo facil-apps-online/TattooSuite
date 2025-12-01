@@ -138,7 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode; supabaseClient:
         setProfile(userProfile);
 
         if (!app_metadata?.assignments || app_metadata.assignments.length === 0 || !app_metadata.assignments[0].tenant_name) {
-          const platformId = import.meta.env.VITE_GLAMTICA_PLATFORM_ID;
+          const platformId = import.meta.env.VITE_TATTOOSUITE_PLATFORM_ID;
           if (!platformId) throw new Error("Platform ID no configurado.");
 
           const { error: refreshError } = await supabaseClient.functions.invoke('user-actions', {
@@ -216,7 +216,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode; supabaseClient:
   const login = async (email: string, password: string) => {
     await supabaseClient.auth.signOut();
     
-    const platformId = import.meta.env.VITE_GLAMTICA_PLATFORM_ID;
+    const platformId = import.meta.env.VITE_TATTOOSUITE_PLATFORM_ID;
     if (!platformId) {
       throw new Error("Platform ID no está configurado en el cliente.");
     }

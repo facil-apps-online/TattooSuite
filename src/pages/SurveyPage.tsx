@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 const Spinner = () => (
   <div className="flex justify-center items-center h-full">
-    <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-600"></div>
+    <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary"></div>
   </div>
 );
 
@@ -92,6 +92,7 @@ const SurveyPage = () => {
         });
 
         if (data.survey_status === 'completed') {
+          setSurveyData(data);
           setAlreadyCompleted(true);
         } else {
           setSurveyData(data);
@@ -171,7 +172,12 @@ const SurveyPage = () => {
       <div className="bg-gray-50 min-h-screen flex items-center justify-center p-4">
         <Card className="max-w-lg mx-auto bg-white text-gray-800 text-center">
           <CardHeader>
-            <CardTitle className="text-2xl text-purple-700">Encuesta Enviada Previamente</CardTitle>
+            <img 
+              src={surveyData?.tenant?.logo_base64 || '/tattoosuite.app.png'} 
+              alt={surveyData?.tenant?.name || 'Logo'} 
+              className="w-24 h-24 mx-auto mb-4 rounded-full object-cover border"
+            />
+            <CardTitle className="text-2xl text-primary">Encuesta Enviada Previamente</CardTitle>
           </CardHeader>
           <CardContent className="p-6">
             <p className="text-gray-600">Esta encuesta ya fue enviada.</p>
@@ -187,7 +193,14 @@ const SurveyPage = () => {
     return (
       <div className="bg-gray-50 min-h-screen flex items-center justify-center p-4">
         <Card className="max-w-lg mx-auto bg-white text-gray-800 text-center">
-          <CardHeader><CardTitle className="text-2xl text-purple-700">¡Encuesta Enviada!</CardTitle></CardHeader>
+          <CardHeader>
+            <img 
+              src={surveyData?.tenant?.logo_base64 || '/tattoosuite.app.png'} 
+              alt={surveyData?.tenant?.name || 'Logo'} 
+              className="w-24 h-24 mx-auto mb-4 rounded-full object-cover border"
+            />
+            <CardTitle className="text-2xl text-primary">¡Encuesta Enviada!</CardTitle>
+          </CardHeader>
           <CardContent className="p-6">
             <p className="text-gray-600">¡Muchas gracias por tu opinión!</p>
             {showGoogleReview && (
@@ -210,11 +223,11 @@ const SurveyPage = () => {
       <div className="container mx-auto p-4 md:p-8">
         <header className="text-center mb-8">
           <img 
-            src={surveyData?.tenant?.logo_base64 || '/glamtica.app.png'} 
+            src={surveyData?.tenant?.logo_base64 || '/tattoosuite.app.png'} 
             alt={surveyData?.tenant?.name || 'Logo'} 
             className="w-24 h-24 mx-auto mb-4 rounded-full object-cover border"
           />
-          <h1 className="text-3xl font-bold tracking-tight text-purple-700">Encuesta de Satisfacción</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-primary">Encuesta de Satisfacción</h1>
           <p className="text-gray-600 mt-2">
             Hola <span className="font-semibold">{surveyData?.client?.name}</span>, por favor, cuéntanos cómo fue tu experiencia en <span className="font-semibold">{surveyData?.tenant?.name}</span>
           </p>
@@ -282,7 +295,7 @@ const SurveyPage = () => {
           </div>
 
           <div className="mt-8 flex justify-end">
-            <Button type="submit" disabled={isSubmitting} className="bg-purple-600 hover:bg-purple-700 text-white">
+            <Button type="submit" disabled={isSubmitting} className="bg-primary text-primary-foreground hover:bg-primary/90">
               {isSubmitting ? 'Enviando...' : 'Enviar Encuesta'}
             </Button>
           </div>

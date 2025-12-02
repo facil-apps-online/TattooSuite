@@ -44,6 +44,7 @@ interface AssignmentManagerDialogProps {
   tenantId: string;
   userName: string;
   initialUserAssignments: TenantUserAssignment[];
+  onAssignmentsUpdate: () => void;
 }
 
 const LoadingSkeleton = () => (
@@ -70,26 +71,30 @@ export const AssignmentManagerDialog: React.FC<AssignmentManagerDialogProps> = (
   userId,
   tenantId,
   userName,
-  initialUserAssignments,
-}) => {
-  const queryClient = useQueryClient();
-  const { data: roles, isLoading: isLoadingRoles } = useRoles();
-  const { data: branches, isLoading: isLoadingBranches } = useBranches(tenantId);
-  const { refreshUser } = useAuth();
-  const updateAssignmentsMutation = useMutation<any, Error, { userId: string; tenantId: string; assignments: AssignmentFormValue[] }>({
-    mutationFn: async ({ userId, tenantId, assignments }) => {
-      return invokeUserAction('update-assignments', { userId, tenantId, assignments });
-    },
-    onSuccess: async () => {
-      toast({ title: 'Éxito', description: 'Asignaciones actualizadas correctamente.', variant: 'success' });
-      await queryClient.invalidateQueries({ queryKey: ['tenantUsers', tenantId] });
-      onOpenChange(false);
-      await refreshUser(); // Refresh user session to reflect changes
-    },
-    onError: (error) => {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
-  });
+    initialUserAssignments,
+    onAssignmentsUpdate,
+  }) => {
+    const queryClient = useQueryClient();
+    const { data: roles, isLoading: isLoadingRoles } = useRoles();
+    const { data: branches, isLoading: isLoadingBranches } = useBranches(tenantId);
+    const { refreshUser } = useAuth();
+    const updateAssignmentsMutation = useMutation<any, Error, { userId: string; tenantId: string; assignments: AssignmentFormValue[] }>(
+      {
+        mutationFn: async ({ userId, tenantId, assignments }) => {
+          return invokeUserAction('update-assignments', { userId, tenantId, assignments });
+        },
+        onSuccess: () => {
+          toast({ title: 'Éxito', description: 'Asignaciones actualizadas correctamente.', variant: 'success' });
+        },
+        onError: (error) => {
+          toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        },
+        onSettled: () => {
+          onAssignmentsUpdate();
+          onOpenChange(false);
+        }
+      }
+    );
   const { toast } = useToast();
   const screenSize = useScreenSize();
 

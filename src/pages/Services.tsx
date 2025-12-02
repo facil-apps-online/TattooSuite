@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -29,6 +28,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { ServiceImageCarousel } from "@/components/service/ServiceImageCarousel";
 
 const ServiceCard = ({ service, category, handleToggleStatus, handleOpenAssignServiceDialog, handleOpenManagePricesDialog, handleOpenServiceCommissionsDialog, navigate, handleDelete }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -41,7 +41,8 @@ const ServiceCard = ({ service, category, handleToggleStatus, handleOpenAssignSe
       target.closest('button') ||
       target.closest('[role="switch"]') ||
       target.closest('[data-radix-dropdown-menu-content]') ||
-      target.closest('[role="menuitem"]')
+      target.closest('[role="menuitem"]') ||
+      target.closest('.embla') // Evita la navegación al hacer clic en el carrusel
     ) {
       return;
     }
@@ -49,8 +50,10 @@ const ServiceCard = ({ service, category, handleToggleStatus, handleOpenAssignSe
   };
 
   return (
-  <Card onClick={handleCardClick} className="cursor-pointer transition-colors hover:bg-muted/50">
-    <CardHeader>
+  <Card className="overflow-hidden flex flex-col">
+    <ServiceImageCarousel images={service.service_images} serviceName={service.name} />
+    <div onClick={handleCardClick} className="cursor-pointer transition-colors hover:bg-muted/50 flex-grow flex flex-col">
+      <CardHeader>
       <div className="flex justify-between items-start">
         <CardTitle>{service.name}</CardTitle>
         <DropdownMenu>
@@ -127,6 +130,7 @@ const ServiceCard = ({ service, category, handleToggleStatus, handleOpenAssignSe
         <Switch checked={service.is_active || false} onCheckedChange={() => handleToggleStatus(service)} />
       </div>
     </CardContent>
+    </div>
   </Card>
   );
 }
@@ -210,7 +214,7 @@ export default function Services() {
   const renderContent = () => {
     if (isLoading) {
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 p-4">
           {[...Array(6)].map((_, i) => <ServiceCardSkeleton key={i} />)}
         </div>
       );
@@ -228,7 +232,7 @@ export default function Services() {
     }
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 p-4">
         {services?.map((service) => {
           const category = categories?.find(cat => cat.id === service.category_id);
           return (

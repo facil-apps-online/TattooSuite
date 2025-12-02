@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, X, ChevronsUpDown, Link, ArrowLeft, Save } from "lucide-react";
-import { useGetCombos, useUpdateCombo } from "@/hooks/useCombos";
+import { useGetCombos, useUpdateCombo, useUpdateBranchComboStatus } from "@/hooks/useCombos";
 import { useMasterProducts } from "@/hooks/useProducts";
 import { useMasterServices } from "@/hooks/useServices";
 import { useToast } from "@/hooks/use-toast";
@@ -126,6 +126,26 @@ const EditComboPage = () => {
             if (item.is_parallel !== initialItem.is_parallel) return true;
         }
         return false;
+    };
+
+    const { mutate: updateBranchComboStatus } = useUpdateBranchComboStatus();
+
+    const handleToggleMicrositeVisibility = (branchId: string, comboId: string, isVisible: boolean) => {
+        updateBranchComboStatus({
+            combo_id: comboId,
+            branch_id: branchId,
+            updates: { is_visible_on_microsite: isVisible },
+        }, {
+            onSuccess: () => {
+                toast({ title: "Visibilidad Actualizada", description: "La visibilidad del combo en el micrositio ha sido actualizada.", variant: "success" });
+                queryClient.invalidateQueries({ queryKey: ['combo_assignments'] });
+                queryClient.invalidateQueries({ queryKey: ['branch_combos'] });
+                queryClient.invalidateQueries({ queryKey: ['combo_branch_details'] });
+            },
+            onError: (error) => {
+                toast({ title: "Error al Actualizar Visibilidad", description: error.message, variant: "destructive" });
+            },
+        });
     };
 
     const handleSuccess = () => {
@@ -390,7 +410,7 @@ const EditComboPage = () => {
                         </form>
                     )}
                     {activeTab === 'branches' && (
-                        <ComboBranchesTab combo={combo} />
+                        <ComboBranchesTab combo={combo} onToggleMicrositeVisibility={handleToggleMicrositeVisibility} />
                     )}
                 </div>
                 <div className="lg:col-span-1 space-y-6">

@@ -19,22 +19,14 @@ import { useScreenSize } from "@/hooks/useScreenSize";
 
 interface ComboDialogProps {
   combo?: Combo | null;
-  trigger?: React.ReactNode;
-  onOpenChange?: (open: boolean) => void;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
 }
 
-export const ComboDialog = ({ combo, trigger, onOpenChange, onSuccess }: ComboDialogProps) => {
+export const ComboDialog = ({ combo, isOpen, onOpenChange, onSuccess }: ComboDialogProps) => {
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
-
-  const handleOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen);
-    if (onOpenChange) {
-      onOpenChange(isOpen);
-    }
-  };
-
+  
   const { currentAssignment } = useAuth();
   const { selectedBranchId } = useBranchFilterStore();
   const screenSize = useScreenSize();
@@ -69,26 +61,27 @@ export const ComboDialog = ({ combo, trigger, onOpenChange, onSuccess }: ComboDi
     return combined;
   }, [masterProducts, masterServices]);
 
-  useEffect(() => {
-    if (combo && open) {
-      setName(combo.name || "");
-      setDescription(combo.description || "");
-      setSku(combo.sku || "");
-      const initialItems = combo.combo_items.map(item => ({
-        ...item,
-        name: item.product?.name || item.service?.name || 'Ítem desconocido',
-        product: item.product,
-        service: item.service,
-        duration: item.service?.duration_minutes || 0,
-      }));
-      setItems(initialItems);
-      setInitialComboState({ name: combo.name || "", description: combo.description || "", sku: combo.sku || "", items: initialItems });
-    } else {
-      resetForm();
-      setInitialComboState(null);
-    }
-  }, [combo, open]);
-
+      useEffect(() => {
+          if (isOpen) {
+              if (combo) {
+                  setName(combo.name || "");
+                  setDescription(combo.description || "");
+                  setSku(combo.sku || "");
+                  const initialItems = combo.combo_items.map(item => ({
+                      ...item,
+                      name: item.product?.name || item.service?.name || 'Ítem desconocido',
+                      product: item.product,
+                      service: item.service,
+                      duration: item.service?.duration_minutes || 0,
+                  }));
+                  setItems(initialItems);
+                  setInitialComboState({ name: combo.name || "", description: combo.description || "", sku: combo.sku || "", items: initialItems });
+              } else {
+                  resetForm();
+                  setInitialComboState({ name: "", description: "", sku: "", items: [] });
+              }
+          }
+      }, [combo, isOpen]);
   useEffect(() => {
     const newItems = JSON.parse(JSON.stringify(items));
     let cumulativeDuration = 0;
@@ -159,25 +152,27 @@ export const ComboDialog = ({ combo, trigger, onOpenChange, onSuccess }: ComboDi
     setItemSearchTerm("");
   };
 
-  const hasChanges = () => {
-    if (!initialComboState) return false;
-    if (name !== initialComboState.name) return true;
-    if (description !== initialComboState.description) return true;
-    if (sku !== initialComboState.sku) return true;
-    if (items.length !== initialComboState.items.length) return true;
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      const initialItem = initialComboState.items[i];
-      if (item.product_id !== initialItem.product_id) return true;
-      if (item.service_id !== initialItem.service_id) return true;
-      if (item.quantity !== initialItem.quantity) return true;
-      if (item.price !== initialItem.price) return true;
-      if (item.offset_minutes !== initialItem.offset_minutes) return true;
-      if (item.is_parallel !== initialItem.is_parallel) return true;
-    }
-    return false;
-  };
-
+      const hasChanges = () => {
+          if (!combo) { // It's a new combo
+              return name.trim() !== '' || description.trim() !== '' || sku.trim() !== '' || items.length > 0;
+          }
+          if (!initialComboState) return false;
+          if (name !== initialComboState.name) return true;
+          if (description !== initialComboState.description) return true;
+          if (sku !== initialComboState.sku) return true;
+          if (items.length !== initialComboState.items.length) return true;
+          for (let i = 0; i < items.length; i++) {
+              const item = items[i];
+              const initialItem = initialComboState.items[i];
+              if (item.product_id !== initialItem.product_id) return true;
+              if (item.service_id !== initialItem.service_id) return true;
+              if (item.quantity !== initialItem.quantity) return true;
+              if (item.price !== initialItem.price) return true;
+              if (item.offset_minutes !== initialItem.offset_minutes) return true;
+              if (item.is_parallel !== initialItem.is_parallel) return true;
+          }
+          return false;
+      };
   const handleSuccess = () => {
     toast({ title: "Éxito", description: `Combo ${combo ? 'actualizado' : 'creado'} correctamente.`, variant: "success" });
     onSuccess?.();
@@ -214,9 +209,8 @@ export const ComboDialog = ({ combo, trigger, onOpenChange, onSuccess }: ComboDi
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent onInteractOutside={(e) => { e.preventDefault(); e.stopPropagation(); handleOpenChange(false); }} className="sm:max-w-[700px]">
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent onInteractOutside={(e) => { e.preventDefault(); e.stopPropagation(); onOpenChange(false); }} className="sm:max-w-[700px]">
         <DialogHeader>
           <DialogTitle>{combo ? "Editar Combo" : "Nuevo Combo"}</DialogTitle>
         </DialogHeader>

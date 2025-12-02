@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useBranches, Branch } from "@/hooks/useBranches";
-import { Combo, useGetComboAssignments, useAssignComboToBranch, useUnassignComboFromBranch } from "@/hooks/useCombos";
+import { Combo, ComboAssignment, useGetComboAssignments, useAssignComboToBranch, useUnassignComboFromBranch } from "@/hooks/useCombos";
 import { Search, Edit } from 'lucide-react';
 import { ComboBranchPriceDialog } from './ComboBranchPriceDialog';
 
@@ -13,9 +13,10 @@ interface ManageComboInBranchesDialogProps {
   combo: Combo | null;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
+  onToggleMicrositeVisibility: (branchId: string, comboId: string, isVisible: boolean) => void;
 }
 
-export const ManageComboInBranchesDialog = ({ combo, isOpen, onOpenChange }: ManageComboInBranchesDialogProps) => {
+export const ManageComboInBranchesDialog = ({ combo, isOpen, onOpenChange, onToggleMicrositeVisibility }: ManageComboInBranchesDialogProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isPriceDialogOpen, setIsPriceDialogOpen] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
@@ -26,8 +27,12 @@ export const ManageComboInBranchesDialog = ({ combo, isOpen, onOpenChange }: Man
   const { mutate: assignCombo } = useAssignComboToBranch();
   const { mutate: unassignCombo } = useUnassignComboFromBranch();
 
-  const assignedBranchIds = useMemo(() => {
-    return new Set(assignments?.map(a => a.branch_id));
+  const assignedBranchMap = useMemo(() => {
+    const map = new Map<string, ComboAssignment>();
+    assignments?.forEach(a => {
+      map.set(a.branch_id, a);
+    });
+    return map;
   }, [assignments]);
 
   const handleAssignmentChange = (branchId: string, isAssigned: boolean) => {
@@ -84,12 +89,14 @@ export const ManageComboInBranchesDialog = ({ combo, isOpen, onOpenChange }: Man
                   <TableRow>
                     <TableHead>Sucursal</TableHead>
                     <TableHead className="text-right">Asignado</TableHead>
+                    <TableHead className="text-right">Visible en Micrositio</TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredBranches.map(branch => {
-                    const isAssigned = assignedBranchIds.has(branch.id);
+                    const assignment = assignedBranchMap.get(branch.id);
+                    const isAssigned = !!assignment;
                     return (
                       <TableRow key={branch.id}>
                         <TableCell className="font-medium">{branch.name}</TableCell>
@@ -97,6 +104,13 @@ export const ManageComboInBranchesDialog = ({ combo, isOpen, onOpenChange }: Man
                           <Switch
                             checked={isAssigned}
                             onCheckedChange={(isChecked) => handleAssignmentChange(branch.id, isChecked)}
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Switch
+                            checked={assignment?.is_visible_on_microsite || false}
+                            onCheckedChange={(isChecked) => combo && onToggleMicrositeVisibility(branch.id, combo.id, isChecked)}
+                            disabled={!isAssigned}
                           />
                         </TableCell>
                         <TableCell className="text-right">

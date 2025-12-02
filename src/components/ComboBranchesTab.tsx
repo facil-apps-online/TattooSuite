@@ -3,16 +3,17 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useBranches, Branch } from "@/hooks/useBranches";
-import { Combo, useGetComboAssignments, useAssignComboToBranch, useUnassignComboFromBranch } from "@/hooks/useCombos";
+import { Combo, ComboAssignment, useGetComboAssignments, useAssignComboToBranch, useUnassignComboFromBranch } from "@/hooks/useCombos";
 import { Search, Edit } from 'lucide-react';
 import { ComboBranchPriceDialog } from './ComboBranchPriceDialog';
 import { Button } from './ui/button';
 
 interface ComboBranchesTabProps {
   combo: Combo | null;
+  onToggleMicrositeVisibility: (branchId: string, comboId: string, isVisible: boolean) => void;
 }
 
-export const ComboBranchesTab = ({ combo }: ComboBranchesTabProps) => {
+export const ComboBranchesTab = ({ combo, onToggleMicrositeVisibility }: ComboBranchesTabProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isPriceDialogOpen, setIsPriceDialogOpen] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
@@ -23,8 +24,12 @@ export const ComboBranchesTab = ({ combo }: ComboBranchesTabProps) => {
   const { mutate: assignCombo } = useAssignComboToBranch();
   const { mutate: unassignCombo } = useUnassignComboFromBranch();
 
-  const assignedBranchIds = useMemo(() => {
-    return new Set(assignments?.map(a => a.branch_id));
+  const assignedBranchMap = useMemo(() => {
+    const map = new Map<string, ComboAssignment>();
+    assignments?.forEach(a => {
+      map.set(a.branch_id, a);
+    });
+    return map;
   }, [assignments]);
 
   const handleAssignmentChange = (branchId: string, isAssigned: boolean) => {
@@ -73,12 +78,14 @@ export const ComboBranchesTab = ({ combo }: ComboBranchesTabProps) => {
                 <TableRow>
                   <TableHead>Sucursal</TableHead>
                   <TableHead className="text-right">Asignado</TableHead>
+                  <TableHead className="text-right">Visible en Micrositio</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredBranches.map(branch => {
-                  const isAssigned = assignedBranchIds.has(branch.id);
+                  const assignment = assignedBranchMap.get(branch.id);
+                  const isAssigned = !!assignment;
                   return (
                     <TableRow key={branch.id}>
                       <TableCell className="font-medium">{branch.name}</TableCell>
@@ -86,6 +93,13 @@ export const ComboBranchesTab = ({ combo }: ComboBranchesTabProps) => {
                         <Switch
                           checked={isAssigned}
                           onCheckedChange={(isChecked) => handleAssignmentChange(branch.id, isChecked)}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Switch
+                          checked={assignment?.is_visible_on_microsite || false}
+                          onCheckedChange={(isChecked) => combo && onToggleMicrositeVisibility(branch.id, combo.id, isChecked)}
+                          disabled={!isAssigned}
                         />
                       </TableCell>
                       <TableCell className="text-right">

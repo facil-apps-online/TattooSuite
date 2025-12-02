@@ -22,6 +22,7 @@ import { useScreenSize } from "@/hooks/useScreenSize";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ComboBranchesTab } from "@/components/ComboBranchesTab";
+import { ComboImageGallery } from "@/components/ComboImageGallery";
 
 type SelectableItem = {
     value: string;
@@ -221,13 +222,15 @@ const EditComboPage = () => {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="details">Detalles</SelectItem>
+                                <SelectItem value="images">Imágenes</SelectItem>
                                 <SelectItem value="branches">Sucursales</SelectItem>
                             </SelectContent>
                         </Select>
                     ) : (
                         <Tabs defaultValue="details" onValueChange={setActiveTab} value={activeTab} className="w-full">
-                            <TabsList className="grid w-full grid-cols-2">
+                            <TabsList className="grid w-full grid-cols-3">
                                 <TabsTrigger value="details">Detalles</TabsTrigger>
+                                <TabsTrigger value="images">Imágenes</TabsTrigger>
                                 <TabsTrigger value="branches">Sucursales</TabsTrigger>
                             </TabsList>
                         </Tabs>
@@ -408,6 +411,14 @@ const EditComboPage = () => {
                                 </Button>
                             </div>
                         </form>
+                    )}
+                    {activeTab === 'images' && (
+                        <Card>
+                            <CardHeader><CardTitle>Imágenes del Combo</CardTitle></CardHeader>
+                            <CardContent>
+                                <ComboImageGallery comboId={combo.id} />
+                            </CardContent>
+                        </Card>
                     )}
                     {activeTab === 'branches' && (
                         <ComboBranchesTab combo={combo} onToggleMicrositeVisibility={handleToggleMicrositeVisibility} />

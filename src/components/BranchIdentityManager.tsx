@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useBranchPhotos, useUploadBranchPhoto, useSetPrimaryBranchPhoto, useDeleteBranchPhoto, BranchPhoto } from '@/hooks/useBranchPhotos';
@@ -19,6 +19,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { SocialNetworkManager } from './SocialNetworkManager';
+import { GenericRichTextEditor } from '@/components/ui/GenericRichTextEditor';
+import { useUpdateBranch, useBranches } from '@/hooks/useBranches';
+import { toast as sonnerToast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+
 
 interface BranchIdentityManagerProps {
   branchId: string;
@@ -71,11 +76,23 @@ const PhotoCard = ({ photo, onSetPrimary, onDelete, isProcessing }: { photo: Bra
 export const BranchIdentityManager: React.FC<BranchIdentityManagerProps> = ({ branchId }) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { tenantId } = useAuth();
+  const { data: branches } = useBranches(tenantId);
+  const branchToEdit = branches?.find(b => b.id === branchId);
   
-  const { data: photos, isLoading, error } = useBranchPhotos(branchId);
+  const { data: photos, isLoading: isLoadingPhotos, error: photosError } = useBranchPhotos(branchId);
   const uploadMutation = useUploadBranchPhoto(branchId);
   const setPrimaryMutation = useSetPrimaryBranchPhoto(branchId);
   const deleteMutation = useDeleteBranchPhoto(branchId);
+  const updateBranchMutation = useUpdateBranch(tenantId);
+
+  const [description, setDescription] = useState('');
+
+  useEffect(() => {
+    if (branchToEdit?.description) {
+      setDescription(branchToEdit.description);
+    }
+  }, [branchToEdit]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -123,6 +140,21 @@ export const BranchIdentityManager: React.FC<BranchIdentityManagerProps> = ({ br
     });
   };
 
+  const handleSaveDescription = async () => {
+    if (!branchToEdit) return;
+    try {
+      await updateBranchMutation.mutateAsync({
+        p_branch_id: branchToEdit.id,
+        p_name: branchToEdit.name,
+        p_description: description,
+      });
+      sonnerToast.success('Descripción de la sucursal guardada con éxito.');
+    } catch (error) {
+      sonnerToast.error('Error al guardar la descripción de la sucursal.');
+      console.error(error);
+    }
+  };
+
   const isProcessing = setPrimaryMutation.isPending || deleteMutation.isPending;
 
   return (
@@ -153,12 +185,12 @@ export const BranchIdentityManager: React.FC<BranchIdentityManagerProps> = ({ br
             </Button>
           </div>
           
-          {isLoading ? (
+          {isLoadingPhotos ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {[...Array(4)].map((_, i) => <Skeleton key={i} className="aspect-video w-full" />)}
             </div>
-          ) : error ? (
-            <p className="text-red-500 text-center">Error al cargar las fotos: {error.message}</p>
+          ) : photosError ? (
+            <p className="text-red-500 text-center">Error al cargar las fotos: {photosError.message}</p>
           ) : photos && photos.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {photos.map(photo => (
@@ -178,6 +210,25 @@ export const BranchIdentityManager: React.FC<BranchIdentityManagerProps> = ({ br
               </p>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Descripción de la Sucursal</CardTitle>
+          <CardDescription>
+            Esta descripción aparecerá en tu micrositio. Habla sobre lo que hace especial a esta sucursal.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <GenericRichTextEditor
+            value={description}
+            onChange={setDescription}
+            placeholder="Describe la sucursal aquí..."
+          />
+          <Button onClick={handleSaveDescription} disabled={updateBranchMutation.isPending} className="mt-4">
+            {updateBranchMutation.isPending ? 'Guardando...' : 'Guardar Descripción'}
+          </Button>
         </CardContent>
       </Card>
       

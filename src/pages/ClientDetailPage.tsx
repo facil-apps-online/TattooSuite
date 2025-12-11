@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { useClientDetails, useUpdateClient, Client } from '@/hooks/useClients';
+import { useClientDetails, useUpdateClient, Client, useGetAssignableArtists, useGetAssignableCommercials } from '@/hooks/useClients';
 import { PageHeader } from '@/components/PageHeader';
 import { ClientForm } from '@/components/ClientForm';
 import { ChatterBox } from '@/components/ChatterBox';
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MultiSelect } from '@/components/ui/MultiSelect';
 import { useBranches } from '@/hooks/useBranches';
 import { useSubClients } from '@/hooks/useClients';
 import { ClientDialog } from '@/components/ClientDialog';
@@ -56,6 +57,13 @@ export default function ClientDetailPage() {
   const { data: countryId } = useTenantCountry(client?.tenant_id);
   const { data: countries } = useCountries();
   const [selectedBranchIds, setSelectedBranchIds] = React.useState<string[]>([]);
+  const { data: artists, isLoading: isLoadingArtists } = useGetAssignableArtists();
+  const { data: commercials, isLoading: isLoadingCommercials } = useGetAssignableCommercials();
+  const [selectedArtistIds, setSelectedArtistIds] = React.useState<string[]>([]);
+  const [selectedCommercialIds, setSelectedCommercialIds] = React.useState<string[]>([]);
+  const [initialArtistIds, setInitialArtistIds] = React.useState<string[]>([]);
+  const [initialCommercialIds, setInitialCommercialIds] = React.useState<string[]>([]);
+  const [isAssociationDirty, setIsAssociationDirty] = React.useState(false);
 
   const countryIsoCode = countries?.find(c => c.id === countryId)?.iso_code;
 
@@ -131,10 +139,24 @@ export default function ClientDetailPage() {
   });
 
   useEffect(() => {
-    if (client?.branches) {
-      setSelectedBranchIds(client.branches.map(b => b.id).filter(Boolean) as string[]);
+    if (client) {
+      if (client.branches) {
+        setSelectedBranchIds(client.branches.map(b => b.id).filter(Boolean) as string[]);
+      }
+      const profIds = client.professional_ids || [];
+      const commIds = client.commercial_ids || [];
+      setSelectedArtistIds(profIds);
+      setInitialArtistIds(profIds);
+      setSelectedCommercialIds(commIds);
+      setInitialCommercialIds(commIds);
     }
   }, [client]);
+
+  useEffect(() => {
+    const artistsChanged = JSON.stringify(selectedArtistIds.sort()) !== JSON.stringify(initialArtistIds.sort());
+    const commercialsChanged = JSON.stringify(selectedCommercialIds.sort()) !== JSON.stringify(initialCommercialIds.sort());
+    setIsAssociationDirty(artistsChanged || commercialsChanged);
+  }, [selectedArtistIds, selectedCommercialIds, initialArtistIds, initialCommercialIds]);
 
   useEffect(() => {
     if (client) {
@@ -173,21 +195,42 @@ export default function ClientDetailPage() {
       'name', 'phone', 'email', 'document_type_id', 'document_number', 'parent_client_id',
       'address_line_1', 'address_line_2', 'city', 'state', 'postal_code', 'country', 'latitude', 'longitude'
     ];
-    const updatesToSend: Partial<Client> = {};
-    for (const key in data) {
-      if (allowedClientProps.includes(key as keyof Client)) {
+    const updatesToSend: Partial<Client> & { professional_ids?: string[], commercial_ids?: string[] } = {};
+    
+    // Copy only dirty fields from the form
+    const dirtyFields = form.formState.dirtyFields;
+    Object.keys(dirtyFields).forEach(key => {
+      if (allowedClientProps.includes(key)) {
         (updatesToSend as any)[key] = (data as any)[key];
       }
-    }
+    });
 
+    // Always include association IDs if they have changed
+    if (isAssociationDirty) {
+      updatesToSend.professional_ids = selectedArtistIds;
+      updatesToSend.commercial_ids = selectedCommercialIds;
+    }
+    
     if (updatesToSend.document_type_id === '') {
         updatesToSend.document_type_id = null;
     }
 
+    // Only mutate if there are actual changes
+    if (Object.keys(updatesToSend).length === 0 && !isAssociationDirty) {
+      toast({ title: "Sin cambios", description: "No se han detectado cambios para guardar.", variant: "default" });
+      return;
+    }
+
     updateMutation.mutate({ clientId: id, updates: updatesToSend }, {
-      onSuccess: () => {
+      onSuccess: (updatedData) => {
         toast({ title: "Éxito", description: "Cliente actualizado correctamente.", variant: "success" });
         queryClient.invalidateQueries({ queryKey: ['chatter', 'clients', id] });
+        
+        // Reset form state with the latest data
+        form.reset(updatedData); 
+        setInitialArtistIds(updatedData.professional_ids || []);
+        setInitialCommercialIds(updatedData.commercial_ids || []);
+        setIsAssociationDirty(false);
       },
       onError: (error: any) => {
         toast({ title: "Error", description: `Error al actualizar cliente: ${error.message}`, variant: "destructive" });
@@ -354,6 +397,28 @@ export default function ClientDetailPage() {
                           <FormMessage />
                         </FormItem>
                       )} />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium">Artistas Asignados</FormLabel>
+                        <MultiSelect
+                          options={artists?.map(a => ({ value: a.user_id, label: `${a.first_name || ''} ${a.last_name || ''}`.trim() })) || []}
+                          selected={selectedArtistIds}
+                          onSelectedChange={setSelectedArtistIds}
+                          placeholder="Seleccionar artistas..."
+                          isLoading={isLoadingArtists}
+                        />
+                      </FormItem>
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium">Asesores Comerciales Asignados</FormLabel>
+                        <MultiSelect
+                          options={commercials?.map(c => ({ value: c.user_id, label: `${c.first_name || ''} ${c.last_name || ''}`.trim() })) || []}
+                          selected={selectedCommercialIds}
+                          onSelectedChange={setSelectedCommercialIds}
+                          placeholder="Seleccionar asesores..."
+                          isLoading={isLoadingCommercials}
+                        />
+                      </FormItem>
                     </div>
                   </div>
                 </CardContent>
@@ -526,7 +591,7 @@ export default function ClientDetailPage() {
             </TabsContent>
           </Tabs>
           <div className="flex justify-end pt-8">
-              <Button type="submit" disabled={!form.formState.isDirty || updateMutation.isPending}>
+              <Button type="submit" disabled={(!form.formState.isDirty && !isAssociationDirty) || updateMutation.isPending}>
                   Guardar Cambios
               </Button>
           </div>

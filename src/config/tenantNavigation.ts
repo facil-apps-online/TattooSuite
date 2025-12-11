@@ -12,7 +12,8 @@ import {
   Store,
   HardHat,
   Plane,
-  Landmark
+  Landmark,
+  Layers,
 } from 'lucide-react';
 
 export const tenantNavigationConfig = [
@@ -81,6 +82,12 @@ export const tenantNavigationConfig = [
         title: "Combos",
         url: "/app/combos",
         icon: Combine,
+        roles: ['tenant_super_admin', 'tenant_admin']
+      },
+      {
+        title: "Proyectos",
+        url: "/app/projects",
+        icon: Layers,
         roles: ['tenant_super_admin', 'tenant_admin']
       },
       {

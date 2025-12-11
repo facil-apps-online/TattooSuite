@@ -33,7 +33,7 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ form, onSubmit, isEdit
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="name">Nombre del Servicio</Label>
-        <Input id="name" {...register("name", { required: "El nombre es obligatorio" })} placeholder="Ej: Corte de Cabello" />
+        <Input id="name" {...register("name", { required: "El nombre es obligatorio" })} placeholder="Ej: Tatuaje a Color" />
         {errors.name && <p className="text-sm text-red-600">{errors.name.message}</p>}
       </div>
       <div className="space-y-2">

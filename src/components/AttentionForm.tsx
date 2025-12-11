@@ -1,4 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, forwardRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { invokeTenantAction } from "@/hooks/useTenantUsers";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -140,9 +142,17 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
 
   
   // --- Context and Other Hooks ---
-  const { tenantId } = useAuth();
+  const { tenantId, currentAssignment } = useAuth();
+  const userRole = currentAssignment?.role_name;
   const { formatPrice } = usePriceFormat();
   const { setBranchId } = useBranchFilterStore();
+
+  // --- Fetch Sales Settings ---
+  const { data: salesSettings, isLoading: isLoadingSalesSettings } = useQuery({
+    queryKey: ['salesSettings', tenantId],
+    queryFn: () => invokeTenantAction('get_sales_settings', { tenantId }),
+    enabled: !!tenantId,
+  });
 
   useEffect(() => {
     if (isEditMode && attention) {
@@ -155,7 +165,6 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
           id: c.id,
           type: 'combo' as const,
           item_id: c.combo_id,
-          user_id: c.user_id,
           user_name: `${c.users?.first_name || ''} ${c.users?.last_name || ''}`.trim(),
           price: c.price,
           quantity: c.quantity || 1,
@@ -482,7 +491,6 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
     const hasMissingUserInItems = items.some(item => {
       if (item.type === 'service' && !item.user_id) return true;
       if (item.type === 'combo') {
-        // Check sub-items within the combo
         return item.items?.some(subItem => subItem.type === 'service' && !subItem.user_id);
       }
       return false;
@@ -496,9 +504,87 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
     setIsSubmitting(true);
 
     if (isEditMode) {
-      // ... (la lógica de edición se mantiene, asumimos que se ajustará en un futuro si es necesario)
+      const payload = {
+        p_attention_id: attention.id,
+        p_branch_id: attention.branch_id,
+        p_services_to_upsert: [],
+        p_products_to_upsert: [],
+        p_combos_to_upsert: [],
+        p_service_ids_to_delete: deletedServiceIds,
+        p_product_ids_to_delete: deletedProductIds,
+        p_combo_ids_to_delete: deletedComboIds,
+      };
+
+      const initialItemsMap = new Map(initialItems.map(item => [item.id, item]));
+
+      items.forEach(item => {
+        const initialItem = initialItemsMap.get(item.id);
+        const hasChanged = !item.is_existing || (initialItem && JSON.stringify(item) !== JSON.stringify(initialItem));
+
+        if (hasChanged) {
+          switch (item.type) {
+            case 'service':
+              payload.p_services_to_upsert.push({
+                id: item.is_existing ? item.id : undefined,
+                service_id: item.item_id,
+                user_id: item.user_id,
+                price: item.price,
+                duration_minutes: item.duration,
+                notes: item.notes,
+                status: item.status,
+                is_parallel: item.is_parallel,
+                offset_minutes: item.offset_minutes,
+                attention_combo_id: item.attention_combo_id,
+              });
+              break;
+            case 'product':
+              payload.p_products_to_upsert.push({
+                id: item.is_existing ? item.id : undefined,
+                product_id: item.item_id,
+                quantity: item.quantity,
+                price: item.price,
+                user_id: item.commission_user_id || null,
+                attention_combo_id: item.attention_combo_id,
+              });
+              break;
+            case 'combo':
+               payload.p_combos_to_upsert.push({
+                id: item.is_existing ? item.id : undefined,
+                combo_id: item.item_id,
+                price: item.price,
+                quantity: item.quantity,
+                notes: item.notes,
+              });
+              item.items?.forEach(subItem => {
+                if (subItem.type === 'service') {
+                    payload.p_services_to_upsert.push({
+                        id: subItem.is_existing ? subItem.id : undefined,
+                        service_id: subItem.item_id,
+                        user_id: subItem.user_id,
+                        price: 0,
+                        duration_minutes: subItem.duration,
+                        notes: subItem.notes,
+                        status: subItem.status,
+                        is_parallel: subItem.is_parallel,
+                        offset_minutes: subItem.offset_minutes,
+                        attention_combo_id: item.id,
+                    });
+                }
+              });
+              break;
+          }
+        }
+      });
+      
+      try {
+        await updateAttentionItemsMutation.mutateAsync(payload);
+        onFinished();
+      } catch (error) {
+        console.error("Error updating attention:", error);
+      } finally {
+        setIsSubmitting(false);
+      }
     } else {
-      // --- Lógica de Creación ---
       const servicesPayload: any[] = [];
       const productsPayload: any[] = [];
       const combosPayload: any[] = [];
@@ -523,44 +609,36 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
             productsPayload.push({
               product_id: item.item_id,
               quantity: item.quantity,
-              unit_price: item.price,
+              price: item.price,
               user_id: item.commission_user_id || null
             });
             break;
           case 'combo':
-            // El combo en sí se añade a su payload
             combosPayload.push({
               combo_id: item.item_id,
               price: item.price * item.quantity,
               quantity: item.quantity,
               notes: item.notes,
-              is_parallel: item.is_parallel,
-              parallel_group_id: item.parallel_group_id,
-              offset_minutes: item.offset_minutes
             });
-            // Y sus sub-items se añaden a los payloads de servicios/productos
             item.items?.forEach(subItem => {
               if (subItem.type === 'service') {
                 servicesPayload.push({
                   service_id: subItem.item_id,
                   user_id: subItem.user_id,
-                  price: 0, // El precio está en el combo
+                  price: 0,
                   duration: subItem.duration,
                   start_time: subItem.start_time,
                   end_time: subItem.end_time,
-                  is_parallel: false, // La paralelización se maneja con offset dentro del combo
+                  is_parallel: false,
                   offset_minutes: subItem.offset_minutes,
                   notes: subItem.notes,
-                  // ¡IMPORTANTE! Aquí se necesita una forma de vincularlo al combo padre.
-                  // Esto requerirá que el backend asocie el servicio al combo recién creado.
-                  // Por ahora, enviamos el combo_id del "master combo".
                   combo_id: item.item_id 
                 });
               } else if (subItem.type === 'product') {
                 productsPayload.push({
                   product_id: subItem.item_id,
                   quantity: subItem.quantity,
-                  unit_price: 0, // El precio está en el combo
+                  price: 0,
                   user_id: subItem.commission_user_id || null,
                   combo_id: item.item_id
                 });
@@ -691,8 +769,11 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
                   isAttentionEditable={isAttentionEditable}
                   tenantId={tenantId}
                   screenSize={screenSize}
-                  attentionId={attention?.id} // Pass attentionId
-                  attention={attention} // Pass the whole attention object
+                  attentionId={attention?.id} 
+                  attention={attention}
+                  salesSettings={salesSettings}
+                  userRole={userRole}
+                  isLoadingSalesSettings={isLoadingSalesSettings}
               />
           ))}
           </div>

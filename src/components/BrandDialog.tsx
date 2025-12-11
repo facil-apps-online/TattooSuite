@@ -78,7 +78,7 @@ export const BrandDialog = ({ brand, trigger }: BrandDialogProps) => {
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ej: L'Oréal"
+              placeholder="Ej: FK Irons"
               required
             />
           </div>

@@ -125,7 +125,7 @@ export const ServiceCategoryDialog = ({ category, trigger, onOpenChange }: Servi
             <form onSubmit={handleSubmit} className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="name">Nombre</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Cortes de Pelo" required />
+                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Tatuajes" required />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="description">Descripción (Opcional)</Label>

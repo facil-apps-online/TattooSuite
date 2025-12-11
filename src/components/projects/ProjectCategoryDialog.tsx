@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Edit } from "lucide-react";
-import { useCreateProductCategory, useUpdateProductCategory, ProductCategory } from "@/hooks/useProductCategories";
+import { useCreateProjectCategory, useUpdateProjectCategory, ProjectCategory } from "@/hooks/useProjectCategories";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,22 +13,22 @@ import { ChatterBox } from "@/components/ChatterBox";
 import { useScreenSize, type ScreenSize } from "@/hooks/useScreenSize";
 import { useToast } from "@/hooks/use-toast";
 
-interface ProductCategoryDialogProps {
-  category?: ProductCategory;
-  trigger: React.ReactNode;
+interface ProjectCategoryDialogProps {
+  category?: ProjectCategory;
+  trigger?: React.ReactNode;
   onOpenChange?: (open: boolean) => void;
 }
 
-export const ProductCategoryDialog = ({ category, trigger, onOpenChange }: ProductCategoryDialogProps) => {
+export const ProjectCategoryDialog = ({ category, trigger, onOpenChange }: ProjectCategoryDialogProps) => {
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+  const [name, setName] = useState(category?.name || "");
+  const [description, setDescription] = useState(category?.description || "");
   const [activeTab, setActiveTab] = useState("general");
 
   const { currentAssignment } = useAuth();
   const tenantId = currentAssignment?.tenant_id;
-  const createMutation = useCreateProductCategory();
-  const updateMutation = useUpdateProductCategory();
+  const createMutation = useCreateProjectCategory();
+  const updateMutation = useUpdateProjectCategory();
   const { toast } = useToast();
 
   const screenSize: ScreenSize = useScreenSize();
@@ -36,18 +36,18 @@ export const ProductCategoryDialog = ({ category, trigger, onOpenChange }: Produ
 
   useEffect(() => {
     if (open) {
-      if (category) {
-        setName(category.name);
-        setDescription(category.description || "");
-      } else {
-        setName("");
-        setDescription("");
-      }
-      setActiveTab("general");
+        if (category) {
+            setName(category.name || "");
+            setDescription(category.description || "");
+        } else {
+            setName("");
+            setDescription("");
+        }
+        setActiveTab("general");
     } else {
         onOpenChange?.(false);
     }
-  }, [open, category]);
+  }, [category, open]);
 
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
@@ -61,7 +61,9 @@ export const ProductCategoryDialog = ({ category, trigger, onOpenChange }: Produ
     if (!name) return;
 
     const action = category ? updateMutation.mutateAsync : createMutation.mutateAsync;
-    const data = category ? { id: category.id, name, description: description || undefined } : { name, description: description || undefined };
+    const data = category
+      ? { id: category.id, updates: { name, description: description || undefined } }
+      : { name, description: description || undefined };
 
     try {
       await action(data as any);
@@ -79,12 +81,18 @@ export const ProductCategoryDialog = ({ category, trigger, onOpenChange }: Produ
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogTrigger asChild>
+        {trigger || (
+          <Button variant="outline" size="sm" className="ml-2">
+            <Plus className="w-4 h-4" />
+          </Button>
+        )}
+      </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {category ? <Edit className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-            {category ? "Editar Categoría" : "Nueva Categoría"}
+            {category ? "Editar Categoría de Proyecto" : "Nueva Categoría de Proyecto"}
           </DialogTitle>
         </DialogHeader>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -117,7 +125,7 @@ export const ProductCategoryDialog = ({ category, trigger, onOpenChange }: Produ
             <form onSubmit={handleSubmit} className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="name">Nombre</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Joyas" required />
+                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Retratos" required />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="description">Descripción (Opcional)</Label>
@@ -132,7 +140,7 @@ export const ProductCategoryDialog = ({ category, trigger, onOpenChange }: Produ
           <TabsContent value="activity">
             {category && tenantId && (
               <ChatterBox
-                resourceType="product_categories"
+                resourceType="treatment_categories"
                 resourceId={category.id}
                 tenantId={tenantId}
                 containerClassName="h-[50vh] mt-4"

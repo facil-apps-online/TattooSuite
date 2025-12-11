@@ -32,6 +32,8 @@ import TimeOffHistoryPage from "@/pages/TimeOffHistoryPage";
 import CommissionsPage from "@/pages/CommissionsPage";
 import EquipmentPage from "@/pages/EquipmentPage";
 import EditEquipmentPage from "@/pages/Equipments/EditEquipmentPage";
+import ProjectsPage from "@/pages/projects/ProjectsPage";
+import EditProjectPage from "@/pages/projects/EditProjectPage";
 
 
 
@@ -109,6 +111,8 @@ function App() {
                 </Route>
                 <Route path="services" element={<Services />} />
                 <Route path="services/:id" element={<ServiceDetailPage />} />
+                <Route path="projects" element={<ProjectsPage />} />
+                <Route path="projects/:projectId" element={<EditProjectPage />} />
                 <Route path="team" element={<Team />} />
                 <Route path="equipment">
                   <Route index element={<EquipmentPage />} />

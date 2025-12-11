@@ -40,7 +40,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <PageHeader title="Dashboard" subtitle="Resumen de actividad del salón" />
+      <PageHeader title="Dashboard" subtitle="Resumen de actividad del estudio" />
 
       {statsLoading ? (
         <div className="flex items-center justify-center h-64">
@@ -74,7 +74,7 @@ export default function Dashboard() {
               trend={(stats?.appointmentsChange || 0) >= 0 ? "up" : "down"}
             />
             <StatsCard
-              title="Estilistas Activos"
+              title="Artistas Activos"
               value={(stats?.activeStylists || 0).toString()}
               change="Disponibles hoy"
               icon={Users}
@@ -94,19 +94,19 @@ export default function Dashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-primary">
                   <Calendar className="w-5 h-5 text-blue-600" />
-                  Atenciones de Hoy ({todayAttentions?.length || 0})
+                  Sesiones de Hoy ({todayAttentions?.length || 0})
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {attentionsLoading ? (
                   <div className="text-center py-4">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-2 text-sm text-slate-600">Cargando atenciones...</p>
+                    <p className="mt-2 text-sm text-slate-600">Cargando sesiones...</p>
                   </div>
                 ) : todayAttentions?.length === 0 ? (
                   <div className="text-center py-8">
                     <Calendar className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                    <p className="text-slate-500">No hay atenciones programadas para hoy</p>
+                    <p className="text-slate-500">No hay sesiones programadas para hoy</p>
                   </div>
                 ) : (
                   <div className="space-y-4 max-h-96 overflow-y-auto">

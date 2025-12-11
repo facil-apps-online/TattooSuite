@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Link, Trash2, UploadCloud, Clock, Plus } from "lucide-react";
+import { Link, Trash2, UploadCloud, Clock, Plus, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -38,7 +38,6 @@ const ComboSubItemCard = ({ subItem, subIndex, attentionDateTime, branchId, isAt
   const [professionalSearchTerm, setProfessionalSearchTerm] = useState("");
   const debouncedSetProfessionalSearchTerm = useMemo(() => debounce(setProfessionalSearchTerm, 300), []);
 
-  // Hook para profesionales de servicios
   const { data: availableUsers, isLoading: isLoadingAvailableUsers } = useAvailableUsers(
     subItem.type === 'service' ? subItem.item_id : undefined,
     'service',
@@ -51,7 +50,6 @@ const ComboSubItemCard = ({ subItem, subIndex, attentionDateTime, branchId, isAt
     professionalSearchTerm
   );
 
-  // Hook para vendedores de productos
   const { data: productSellers, isLoading: isLoadingProductSellers } = useProductSellers(
     subItem.type === 'product' ? subItem.item_id : undefined,
     branchId
@@ -151,9 +149,12 @@ export interface ItemFormCardProps {
   availableBranchProducts: any[];
   isAttentionEditable: boolean;
   tenantId?: string;
-  screenSize: 'mobile' | 'tablet' | 'desktop';
+  screenSize: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   attentionId?: string;
   attention: any;
+  salesSettings: any;
+  userRole?: string;
+  isLoadingSalesSettings: boolean;
 }
 
 const ItemFormCard = ({
@@ -171,6 +172,9 @@ const ItemFormCard = ({
   isAttentionEditable,
   attentionId,
   attention,
+  salesSettings,
+  userRole,
+  isLoadingSalesSettings
 }: ItemFormCardProps) => {
   const [evidenceDialogService, setEvidenceDialogService] = useState<ItemForm | null>(null);
   const [professionalSearchTerm, setProfessionalSearchTerm] = useState("");
@@ -209,7 +213,12 @@ const ItemFormCard = ({
     sellerSearchTerm
   );
 
-  const totalItemDuration = (item.duration || 0) * item.quantity;
+  const totalItemDuration = useMemo(() => {
+    if (item.type !== 'combo') {
+      return (item.duration || 0) * item.quantity;
+    }
+    return item.duration || 0;
+  }, [item.type, item.duration, item.quantity]);
 
   const { data: availableUsers, isLoading: isLoadingAvailableUsers } = useAvailableUsers(
     item.type === 'service' ? item.item_id : undefined,
@@ -231,7 +240,7 @@ const ItemFormCard = ({
         item_id: ci.service_id || ci.product_id,
         item_name: ci.name,
         quantity: ci.quantity,
-        price: ci.final_price,
+        price: ci.final_price, // final_price is the correct field from the view
         duration: ci.duration_minutes,
         is_existing: false,
         status: 'Pendiente',
@@ -243,14 +252,11 @@ const ItemFormCard = ({
         offset_minutes: ci.offset_minutes || 0,
       }));
 
-      const baseDuration = newItems.reduce((acc, comboItem) => {
-        if (comboItem.type === 'service') {
-          return acc + (comboItem.duration || 0);
-        }
-        return acc;
-      }, 0);
+      const baseDuration = newItems
+        .filter(i => i.type === 'service')
+        .reduce((acc, comboItem) => acc + ((comboItem.duration || 0) * comboItem.quantity), 0);
       
-      const basePrice = newItems.reduce((acc, comboItem) => acc + (comboItem.price || 0), 0);
+      const basePrice = comboDetails.total_price;
 
       onUpdate(index, {
         duration: baseDuration,
@@ -304,8 +310,8 @@ const ItemFormCard = ({
       if (selectedItem.type === 'service') {
         updates.duration = selectedItem.duration_minutes || 0;
       } else if (selectedItem.type === 'combo') {
-        updates.duration = 0;
-        updates.price = 0;
+        updates.duration = 0; // Will be calculated by useEffect
+        updates.price = selectedItem.selling_price || 0; // Use combo's own price
       }
       onUpdate(index, updates);
     }
@@ -313,6 +319,10 @@ const ItemFormCard = ({
 
   const handleQuantityChange = (newQuantity: number) => {
     onUpdate(index, { quantity: Math.max(1, newQuantity) });
+  };
+
+  const handlePriceChange = (newPrice: number) => {
+    onUpdate(index, { price: Math.max(0, newPrice) });
   };
 
   const handleUpdateSubItem = useCallback((subIndex: number, updates: Partial<ItemForm>) => {
@@ -329,6 +339,16 @@ const ItemFormCard = ({
     if (item.type === 'service' || item.type === 'combo') return true;
     return false;
   }, [isAttentionEditable, item.type]);
+  
+  const canEditPrice = useMemo(() => {
+    if (item.type === 'combo') return false; // Never allow editing combo price directly
+    if (!isAttentionEditable) return false;
+    if (isLoadingSalesSettings) return false;
+    if (!salesSettings?.price_modification_allowed) return false;
+
+    const allowedRoles = salesSettings.allowed_roles || [];
+    return userRole && allowedRoles.includes(userRole);
+  }, [salesSettings, isLoadingSalesSettings, userRole, isAttentionEditable, item.type]);
 
   if (item.type === 'product') {
     const productSellersOptions = productSellers?.map((seller: any) => ({
@@ -357,7 +377,7 @@ const ItemFormCard = ({
                     options={itemOptions}
                     value={item.item_id}
                     onValueChange={handleItemChange}
-                    disabled={isItemDisabled}
+                    disabled={isItemDisabled || item.is_existing}
                     onSearch={onSearchItems}
                     searchPlaceholder="Buscar..."
                 />
@@ -384,15 +404,28 @@ const ItemFormCard = ({
                             className="w-full"
                         />
                     </div>
-                    <div className="p-2 bg-muted rounded-md text-sm text-right flex flex-col justify-center">
-                        <div>
-                            <span className="font-semibold">Unitario: </span>
-                            <span>{formatPrice(item.price)}</span>
-                        </div>
-                        <div>
-                            <span className="font-semibold">Total: </span>
-                            <span>{formatPrice(item.price * item.quantity)}</span>
-                        </div>
+                    {canEditPrice ? (
+                      <div className="w-full">
+                        <Label>Precio Unitario</Label>
+                        <Input
+                          type="number"
+                          value={item.price}
+                          onChange={(e) => handlePriceChange(parseFloat(e.target.value) || 0)}
+                          min={0}
+                          disabled={!item.item_id}
+                          className="w-full"
+                        />
+                      </div>
+                    ) : (
+                      <div className="p-2 bg-muted rounded-md text-sm text-right flex flex-col justify-center h-full">
+                        <div><span className="font-semibold">Unitario: </span>{formatPrice(item.price)}</div>
+                      </div>
+                    )}
+                </div>
+                 <div className="p-2 bg-muted rounded-md text-sm text-right">
+                    <div>
+                        <span className="font-semibold">Total: </span>
+                        <span>{formatPrice(item.price * item.quantity)}</span>
                     </div>
                 </div>
             </CardContent>
@@ -494,6 +527,27 @@ const ItemFormCard = ({
                     />
                 </div>
             )}
+             {item.type === 'service' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                  {canEditPrice ? (
+                      <div className="w-full">
+                        <Label>Precio del Servicio</Label>
+                        <Input
+                          type="number"
+                          value={item.price}
+                          onChange={(e) => handlePriceChange(parseFloat(e.target.value) || 0)}
+                          min={0}
+                          disabled={!item.item_id}
+                          className="w-full"
+                        />
+                      </div>
+                    ) : (
+                      <div className="p-2 bg-muted rounded-md text-sm text-right flex flex-col justify-center h-full">
+                        <div><span className="font-semibold">Valor: </span>{formatPrice(item.price)}</div>
+                      </div>
+                    )}
+              </div>
+             )}
 
             {item.type === 'combo' && (
               <div className="mt-4">
@@ -512,7 +566,10 @@ const ItemFormCard = ({
                 <div className="mt-4 pt-4 border-t">
                     <h4 className="text-sm font-semibold mb-2">Contenido del Combo:</h4>
                     {isLoadingComboDetails ? (
-                        <p className="text-sm text-muted-foreground">Cargando detalles del combo...</p>
+                       <div className="flex items-center text-sm text-muted-foreground">
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Cargando detalles del combo...
+                        </div>
                     ) : (
                         <div className="space-y-3">
                             {comboItemsToDisplay.map((comboItem, subIndex) => (
@@ -537,7 +594,7 @@ const ItemFormCard = ({
                     <span>{totalItemDuration} min</span>
                 </div>
                 <div>
-                    <span className="font-semibold">Valor: </span>
+                    <span className="font-semibold">Valor Total: </span>
                     <span>{formatPrice(item.price * item.quantity)}</span>
                 </div>
                 <div>
@@ -588,13 +645,11 @@ const ItemFormCard = ({
                           <UploadCloud className="w-4 h-4 mr-2" />
                           Evidencia
                         </Button>
-                        {/* NEW: Asignar Consentimiento Button */}
                         <Button type="button" size="sm" variant="outline" onClick={() => setIsAssignConsentDialogOpen(true)}>
                           <Plus className="w-4 h-4 mr-2" />
                           Consentimiento
                         </Button>
                     </div>
-                    {/* NEW: Display Signed Consents for this service */}
                     <SignedConsentsDisplay attentionId={attentionId} attentionServiceId={item.id} branchId={branchId} attention={attention} />
                 </div>
             )}
@@ -608,7 +663,6 @@ const ItemFormCard = ({
       branchId={branchId || ''}
       onUploadComplete={() => setEvidenceDialogService(null)}
     />
-    {/* NEW: Assign Consent Dialog */}
     {item.type === 'service' && (
       <AssignConsentDialog
         open={isAssignConsentDialogOpen}
@@ -621,9 +675,8 @@ const ItemFormCard = ({
   );
 };
 
-// NEW: Sub-component to display signed consents
 interface SignedConsentsDisplayProps {
-  attentionId: string;
+  attentionId?: string;
   attentionServiceId: string;
   branchId?: string;
   attention: any;

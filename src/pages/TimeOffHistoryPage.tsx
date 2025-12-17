@@ -13,15 +13,7 @@ import { registerLocale } from "react-datepicker";
 import es from "date-fns/locale/es";
 import { startOfMonth, endOfMonth, subMonths } from 'date-fns'; // Add this import
 
-registerLocale("es", es);
-
-const TIME_OFF_TYPES = [
-  { value: 'vacation', label: 'Vacaciones' },
-  { value: 'sick', label: 'Enfermedad' },
-  { value: 'personal', label: 'Personal' },
-  { value: 'training', label: 'Capacitación' },
-  { value: 'other', label: 'Otro' },
-];
+import { useGetAbsenceTypes } from '@/hooks/useAbsenceTypes';
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'Todos' },
@@ -41,6 +33,8 @@ const TimeOffHistoryPage: React.FC = () => {
   const [startDate, setStartDate] = useState<Date | undefined>(subMonths(new Date(), 1));
   const [endDate, setEndDate] = useState<Date | undefined>(new Date());
   const [filterSearchTerm, setFilterSearchTerm] = useState<string>(''); // Para filtrar por nombre, apellido, email, etc.
+
+  const { data: absenceTypes, isLoading: isLoadingAbsenceTypes } = useGetAbsenceTypes(true);
 
   const isSuperAdmin = currentAssignment?.role_name === 'tenant_super_admin';
   const canApprove = false; // No se puede aprobar desde el historial
@@ -95,11 +89,15 @@ const TimeOffHistoryPage: React.FC = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
-                  {TIME_OFF_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
+                  {isLoadingAbsenceTypes ? (
+                    <SelectItem value="loading" disabled>Cargando...</SelectItem>
+                  ) : (
+                    absenceTypes?.map((type) => (
+                      <SelectItem key={type.id} value={type.id}>
+                        {type.name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>

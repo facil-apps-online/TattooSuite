@@ -27,7 +27,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onDel
   const { mutate: updateProject, isPending: isUpdatingStatus } = useUpdateProject();
   const { formatPrice } = usePriceFormat();
 
-  const sessionCount = project.session_count?.[0]?.count ?? 0;
+  const sessionCount = project.session_count ?? 0;
 
   const handleFullEdit = () => {
     navigate(`/app/projects/${project.id}`);
@@ -115,11 +115,9 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onDel
             {project.categories && project.categories.length > 0 && (
               <div className="flex flex-wrap gap-1 pt-2">
                 {project.categories.map(c => (
-                  c.treatment_categories && (
-                    <Badge key={c.treatment_categories.id} variant="secondary">
-                      {c.treatment_categories.name}
-                    </Badge>
-                  )
+                  <Badge key={c.id} variant="secondary">
+                    {c.name}
+                  </Badge>
                 ))}
               </div>
             )}

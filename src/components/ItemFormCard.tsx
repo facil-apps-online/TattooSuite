@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Link, Trash2, UploadCloud, Clock, Plus, Loader2 } from "lucide-react";
+import { Link, Trash2, UploadCloud, Clock, Plus, Loader2, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -32,9 +32,10 @@ interface ComboSubItemCardProps {
   branchId?: string;
   isAttentionEditable: boolean;
   onUpdate: (subIndex: number, updates: Partial<ItemForm>) => void;
+  clientId?: string;
 }
 
-const ComboSubItemCard = ({ subItem, subIndex, attentionDateTime, branchId, isAttentionEditable, onUpdate }: ComboSubItemCardProps) => {
+const ComboSubItemCard = ({ subItem, subIndex, attentionDateTime, branchId, isAttentionEditable, onUpdate, clientId }: ComboSubItemCardProps) => {
   const [professionalSearchTerm, setProfessionalSearchTerm] = useState("");
   const debouncedSetProfessionalSearchTerm = useMemo(() => debounce(setProfessionalSearchTerm, 300), []);
 
@@ -47,7 +48,8 @@ const ComboSubItemCard = ({ subItem, subIndex, attentionDateTime, branchId, isAt
     branchId,
     subItem.is_existing ? subItem.user_id : undefined,
     subItem.is_existing ? subItem.id : undefined,
-    professionalSearchTerm
+    professionalSearchTerm,
+    clientId
   );
 
   const { data: productSellers, isLoading: isLoadingProductSellers } = useProductSellers(
@@ -59,7 +61,12 @@ const ComboSubItemCard = ({ subItem, subIndex, attentionDateTime, branchId, isAt
     if (!availableUsers) return [];
     return availableUsers.map((user: any) => ({
       value: user.user_id,
-      label: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email,
+      label: (
+        <div className="flex items-center gap-2">
+          {`${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email}
+          {user.is_favorite && <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />}
+        </div>
+      ),
     }));
   }, [availableUsers]);
 
@@ -155,6 +162,8 @@ export interface ItemFormCardProps {
   salesSettings: any;
   userRole?: string;
   isLoadingSalesSettings: boolean;
+  onOpenSignConsentDialog: (consent: SignedConsent, attention: any) => void;
+  clientId?: string;
 }
 
 const ItemFormCard = ({
@@ -174,7 +183,9 @@ const ItemFormCard = ({
   attention,
   salesSettings,
   userRole,
-  isLoadingSalesSettings
+  isLoadingSalesSettings,
+  onOpenSignConsentDialog,
+  clientId,
 }: ItemFormCardProps) => {
   const [evidenceDialogService, setEvidenceDialogService] = useState<ItemForm | null>(null);
   const [professionalSearchTerm, setProfessionalSearchTerm] = useState("");
@@ -229,7 +240,8 @@ const ItemFormCard = ({
     branchId,
     item.is_existing ? item.user_id : undefined,
     item.is_existing ? item.id : undefined,
-    professionalSearchTerm
+    professionalSearchTerm,
+    clientId
   );
 
   useEffect(() => {
@@ -270,7 +282,12 @@ const ItemFormCard = ({
     if (!availableUsers) return [];
     return availableUsers.map((user: any) => ({
       value: user.user_id,
-      label: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email,
+      label: (
+        <div className="flex items-center gap-2">
+          {`${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email}
+          {user.is_favorite && <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />}
+        </div>
+      ),
     }));
   }, [availableUsers]);
 
@@ -404,23 +421,6 @@ const ItemFormCard = ({
                             className="w-full"
                         />
                     </div>
-                    {canEditPrice ? (
-                      <div className="w-full">
-                        <Label>Precio Unitario</Label>
-                        <Input
-                          type="number"
-                          value={item.price}
-                          onChange={(e) => handlePriceChange(parseFloat(e.target.value) || 0)}
-                          min={0}
-                          disabled={!item.item_id}
-                          className="w-full"
-                        />
-                      </div>
-                    ) : (
-                      <div className="p-2 bg-muted rounded-md text-sm text-right flex flex-col justify-center h-full">
-                        <div><span className="font-semibold">Unitario: </span>{formatPrice(item.price)}</div>
-                      </div>
-                    )}
                 </div>
                  <div className="p-2 bg-muted rounded-md text-sm text-right">
                     <div>
@@ -454,7 +454,8 @@ const ItemFormCard = ({
               {/* Right Side: Action Buttons */}
               <div className="flex-shrink-0 flex items-center gap-1">
                 {canBeParallel && (
-                  <Button 
+                  <Button
+                      type="button"
                       variant="outline" 
                       size="icon" 
                       onClick={() => onUpdate(index, { is_parallel: !item.is_parallel })}
@@ -529,23 +530,6 @@ const ItemFormCard = ({
             )}
              {item.type === 'service' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-                  {canEditPrice ? (
-                      <div className="w-full">
-                        <Label>Precio del Servicio</Label>
-                        <Input
-                          type="number"
-                          value={item.price}
-                          onChange={(e) => handlePriceChange(parseFloat(e.target.value) || 0)}
-                          min={0}
-                          disabled={!item.item_id}
-                          className="w-full"
-                        />
-                      </div>
-                    ) : (
-                      <div className="p-2 bg-muted rounded-md text-sm text-right flex flex-col justify-center h-full">
-                        <div><span className="font-semibold">Valor: </span>{formatPrice(item.price)}</div>
-                      </div>
-                    )}
               </div>
              )}
 
@@ -581,6 +565,7 @@ const ItemFormCard = ({
                                   branchId={branchId}
                                   isAttentionEditable={isAttentionEditable}
                                   onUpdate={handleUpdateSubItem}
+                                  clientId={clientId}
                                 />
                             ))}
                         </div>
@@ -650,7 +635,7 @@ const ItemFormCard = ({
                           Consentimiento
                         </Button>
                     </div>
-                    <SignedConsentsDisplay attentionId={attentionId} attentionServiceId={item.id} branchId={branchId} attention={attention} />
+                    <SignedConsentsDisplay attentionId={attentionId} attentionServiceId={item.id} branchId={branchId} attention={attention} onOpenSignConsentDialog={onOpenSignConsentDialog} />
                 </div>
             )}
 
@@ -680,14 +665,13 @@ interface SignedConsentsDisplayProps {
   attentionServiceId: string;
   branchId?: string;
   attention: any;
+  onOpenSignConsentDialog: (consent: SignedConsent, attention: any) => void;
 }
 
-const SignedConsentsDisplay = ({ attentionId, attentionServiceId, branchId, attention }: SignedConsentsDisplayProps) => {
+const SignedConsentsDisplay = ({ attentionId, attentionServiceId, branchId, attention, onOpenSignConsentDialog }: SignedConsentsDisplayProps) => {
   const { data: signedConsents, isLoading: isLoadingSignedConsents } = useSignedConsentsForAttention(attentionId, attentionServiceId);
   const { mutate: deleteConsent, isPending: isDeleting } = useDeleteSignedConsent();
-  const { mutate: signConsent, isPending: isSigning } = useSignConsent();
   const { toast } = useToast();
-  const [selectedConsent, setSelectedConsent] = useState<SignedConsent | null>(null);
 
   const handleDelete = (consentId: string) => {
     deleteConsent(consentId, {
@@ -696,26 +680,6 @@ const SignedConsentsDisplay = ({ attentionId, attentionServiceId, branchId, atte
       },
       onError: (error) => {
         toast({ title: "Error", description: `No se pudo eliminar el consentimiento: ${error.message}`, variant: "destructive" });
-      },
-    });
-  };
-
-  const handleSignConsent = (signatureDataUrl: string, observations: string, formData: any, signedContent: string) => {
-    if (!selectedConsent || !branchId) return;
-    signConsent({
-      signedConsentId: selectedConsent.id,
-      signatureDataUrl,
-      observations,
-      branchId,
-      formData,
-      signedContent,
-    }, {
-      onSuccess: () => {
-        toast({ title: "Éxito", description: "Consentimiento firmado correctamente.", variant: "success" });
-        setSelectedConsent(null);
-      },
-      onError: (error) => {
-        toast({ title: "Error", description: `No se pudo firmar el consentimiento: ${error.message}`, variant: "destructive" });
       },
     });
   };
@@ -739,9 +703,12 @@ const SignedConsentsDisplay = ({ attentionId, attentionServiceId, branchId, atte
               {consent.signed_at ? (
                 <span className="text-green-600">Firmado</span>
               ) : (
-                <Button variant="link" className="text-orange-600 h-auto p-0" onClick={() => setSelectedConsent(consent)}>
+                <span
+                  className="text-orange-600 h-auto p-0 cursor-pointer underline"
+                  onClick={() => onOpenSignConsentDialog(consent, attention)}
+                >
                   Pendiente
-                </Button>
+                </span>
               )}
               {!consent.signed_at && (
                 <AlertDialog>
@@ -770,14 +737,7 @@ const SignedConsentsDisplay = ({ attentionId, attentionServiceId, branchId, atte
           </div>
         ))}
       </div>
-      <ViewConsentDialog
-        open={!!selectedConsent}
-        onOpenChange={(isOpen) => !isOpen && setSelectedConsent(null)}
-        signedConsent={selectedConsent}
-        onConfirm={handleSignConsent}
-        isSigning={isSigning}
-        attention={attention}
-      />
+      {/* ViewConsentDialog is now rendered in the parent Attentions.tsx */}
     </>
   );
 };

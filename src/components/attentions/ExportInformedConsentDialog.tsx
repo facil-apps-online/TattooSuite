@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useGoogleDriveImage } from '@/hooks/useGoogleDriveImage';
@@ -45,9 +45,9 @@ export const ExportInformedConsentDialog: React.FC<ExportInformedConsentDialogPr
   const { displayUrl: signatureDisplayUrl } = useGoogleDriveImage(signedConsent?.signature_file_id);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const { data: client } = useClientDetails(signedConsent?.client_id || '');
-  
+
   const handlePrint = useCallback(async () => {
-    if (!signedConsent || !session?.access_token || !client || !tenant) {
+    if (!signedConsent || !session?.access_token || !client || !tenant) { // Revert check to include client
       toast({ title: "Error", description: "Faltan datos para generar el documento.", variant: "destructive" });
       return;
     }
@@ -69,7 +69,7 @@ export const ExportInformedConsentDialog: React.FC<ExportInformedConsentDialogPr
       const fullHtml = `
         <html>
           <head>
-            <title>Consentimiento Informado - ${client.name}</title>
+            <title>Consentimiento Informado - ${client.name || 'Cliente de Prueba'}</title> <!-- Use client mock name -->
             <link rel="preconnect" href="https://fonts.googleapis.com">
             <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
             <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
@@ -153,7 +153,7 @@ export const ExportInformedConsentDialog: React.FC<ExportInformedConsentDialogPr
     } finally {
       setIsGeneratingPDF(false);
     }
-  }, [signedConsent, session, client, tenant, signatureDisplayUrl, toast]);
+  }, [signedConsent, session, tenant, signatureDisplayUrl, toast]); // Remove client from dependencies
   
   if (!signedConsent) return null;
 

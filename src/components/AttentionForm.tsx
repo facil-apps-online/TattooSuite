@@ -41,6 +41,7 @@ interface AttentionFormProps {
   initialDate?: Date;
   attention?: any | null;
   screenSize: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  onOpenSignConsentDialog: (consent: SignedConsent, attention: any) => void;
 }
 
 // MODIFICACIÓN: Componente interno para manejar la lógica de la vista previa
@@ -106,7 +107,7 @@ const TimePickerButton = forwardRef<
 TimePickerButton.displayName = "TimePickerButton";
 
 
-export const AttentionForm = ({ branchId, onFinished, initialDate, attention = null, screenSize }: AttentionFormProps) => {
+export const AttentionForm = ({ branchId, onFinished, initialDate, attention = null, screenSize, onOpenSignConsentDialog }: AttentionFormProps) => {
   const { toast } = useToast();
   const isMobile = screenSize === 'sm' || screenSize === 'md';
   const isEditMode = !!attention;
@@ -170,6 +171,7 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
           quantity: c.quantity || 1,
           notes: c.notes || '', // Fallback to empty string
           item_name: c.combos?.name,
+          duration: c.combos?.duration_minutes || 0,
           is_existing: true,
           status: c.status,
           start_time: c.start_time || '', // Fallback to empty string
@@ -191,7 +193,7 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
         user_name: `${s.users?.first_name || ''} ${s.users?.last_name || ''}`.trim(),
         price: s.service_price,
         quantity: 1,
-        duration: s.duration_minutes,
+        duration: s.duration_minutes || 0,
         notes: s.notes,
         item_name: s.services?.name,
         is_existing: true,
@@ -201,7 +203,7 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
         status_history: s.status_history,
         is_parallel: s.is_parallel,
         parallel_group_id: s.parallel_group_id,
-        offset_minutes: s.offset_minutes,
+        offset_minutes: s.offset_minutes || 0,
         attention_combo_id: s.attention_combo_id,
       }));
 
@@ -248,16 +250,6 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
         } else {
           standaloneItems.push(product);
         }
-      }
-
-      // Calculate combo duration after populating items
-      for (const combo of comboMap.values()) {
-        combo.duration = combo.items.reduce((totalDuration, currentItem) => {
-          if (currentItem.type === 'service') {
-            return totalDuration + (currentItem.duration || 0);
-          }
-          return totalDuration;
-        }, 0);
       }
 
       const allItems = [...combos, ...standaloneItems];
@@ -383,54 +375,30 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
       }
 
       item.start_time = format(currentItemStartTime, 'HH:mm');
-      const itemEndTime = addMinutes(currentItemStartTime, (item.duration || 0) * item.quantity);
+      let itemEndTime = addMinutes(currentItemStartTime, (item.duration || 0) * item.quantity);
       item.end_time = format(itemEndTime, 'HH:mm');
 
-      // Si es un combo, calcular tiempos de sub-items
+      // Si es un combo, calcular tiempos de sub-items y actualizar el itemEndTime del combo
       if (item.type === 'combo' && item.items && item.items.length > 0) {
+        let comboTimelineEndTime = new Date(currentItemStartTime);
         for (const subItem of item.items) {
           if (subItem.type === 'service') {
-            const subItemStartTime = addMinutes(currentItemStartTime, subItem.offset_minutes || 0);
+            // Assuming sub-items run sequentially within the combo for now
+            const subItemStartTime = addMinutes(comboTimelineEndTime, subItem.offset_minutes || 0);
             subItem.start_time = format(subItemStartTime, 'HH:mm');
             const subItemEndTime = addMinutes(subItemStartTime, subItem.duration || 0);
             subItem.end_time = format(subItemEndTime, 'HH:mm');
+            if (subItemEndTime > comboTimelineEndTime) {
+                comboTimelineEndTime = subItemEndTime;
+            }
           }
         }
+        itemEndTime = comboTimelineEndTime;
+        item.end_time = format(itemEndTime, 'HH:mm');
       }
 
-      if (!item.is_parallel) {
-        const allEndTimesInGroup = [itemEndTime];
-        
-        // Considerar los sub-items del item actual si es un combo
-        if (item.type === 'combo' && item.items) {
-            item.items.forEach(subItem => {
-                if (subItem.end_time) {
-                    const [h, m] = subItem.end_time.split(':').map(Number);
-                    allEndTimesInGroup.push(setHours(setMinutes(new Date(attentionDateTime), m), h));
-                }
-            });
-        }
-
-        // Considerar los items paralelos anteriores
-        let j = i - 1;
-        while (j >= 0 && newItems[j].is_parallel) {
-          const prevItem = newItems[j];
-          if (prevItem.end_time) {
-            const [h, m] = prevItem.end_time.split(':').map(Number);
-            allEndTimesInGroup.push(setHours(setMinutes(new Date(attentionDateTime), m), h));
-          }
-          // Y sus sub-items si son combos
-          if (prevItem.type === 'combo' && prevItem.items) {
-            prevItem.items.forEach(subItem => {
-                if (subItem.end_time) {
-                    const [h, m] = subItem.end_time.split(':').map(Number);
-                    allEndTimesInGroup.push(setHours(setMinutes(new Date(attentionDateTime), m), h));
-                }
-            });
-          }
-          j--;
-        }
-        timelineEndTime = new Date(Math.max(...allEndTimesInGroup.map(d => d.getTime())));
+      if (itemEndTime > timelineEndTime) {
+        timelineEndTime = itemEndTime;
       }
     }
 
@@ -444,32 +412,36 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
       return { totalDuration: 0, finalEndTime: '--:--' };
     }
 
-    const allServiceEndTimes: Date[] = [];
+    let rawTotalDuration = 0;
+    let totalOffset = 0;
 
     items.forEach(item => {
-      if (item.type === 'service' && item.end_time) {
-        const [h, m] = item.end_time.split(':').map(Number);
-        if (!isNaN(h)) allServiceEndTimes.push(setHours(setMinutes(new Date(attentionDateTime), m), h));
-      } else if (item.type === 'combo' && item.items) {
-        item.items.forEach(subItem => {
-          if (subItem.type === 'service' && subItem.end_time) {
-            const [h, m] = subItem.end_time.split(':').map(Number);
-            if (!isNaN(h)) allServiceEndTimes.push(setHours(setMinutes(new Date(attentionDateTime), m), h));
+      if (item.type === 'service') {
+        rawTotalDuration += (item.duration || 0) * item.quantity;
+        if (item.is_parallel) {
+          totalOffset += item.offset_minutes || 0;
+        }
+      } else if (item.type === 'combo') {
+        const comboDuration = item.items?.reduce((acc, subItem) => {
+          if (subItem.type === 'service') {
+            return acc + (subItem.duration || 0);
           }
-        });
+          return acc;
+        }, 0) || 0;
+        rawTotalDuration += comboDuration * item.quantity;
+
+        if (item.is_parallel) {
+          totalOffset += item.offset_minutes || 0;
+        }
       }
     });
 
-    if (allServiceEndTimes.length === 0) {
-      return { totalDuration: 0, finalEndTime: '--:--' };
-    }
-
-    const latestEndTime = new Date(Math.max(...allServiceEndTimes.map(date => date.getTime())));
-    const duration = differenceInMinutes(latestEndTime, attentionDateTime);
+    const calculatedDuration = rawTotalDuration - totalOffset;
+    const finalEndTimeDate = addMinutes(attentionDateTime, calculatedDuration > 0 ? calculatedDuration : 0);
 
     return {
-      totalDuration: duration > 0 ? duration : 0,
-      finalEndTime: format(latestEndTime, 'h:mm a'),
+      totalDuration: calculatedDuration > 0 ? calculatedDuration : 0,
+      finalEndTime: format(finalEndTimeDate, 'h:mm a'),
     };
   }, [items, attentionDateTime]);
 
@@ -515,11 +487,24 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
         p_combo_ids_to_delete: deletedComboIds,
       };
 
+      const getComparableItem = (item: ItemForm | null) => {
+        if (!item) return null;
+        const { start_time, end_time, item_name, user_name, status_history, ...rest } = item;
+        if (rest.items) {
+          rest.items = rest.items.map(getComparableItem);
+        }
+        return rest;
+      };
+
       const initialItemsMap = new Map(initialItems.map(item => [item.id, item]));
 
       items.forEach(item => {
         const initialItem = initialItemsMap.get(item.id);
-        const hasChanged = !item.is_existing || (initialItem && JSON.stringify(item) !== JSON.stringify(initialItem));
+        
+        const comparableItem = getComparableItem(item);
+        const comparableInitialItem = getComparableItem(initialItem);
+
+        const hasChanged = !item.is_existing || (initialItem && JSON.stringify(comparableItem) !== JSON.stringify(comparableInitialItem));
 
         if (hasChanged) {
           switch (item.type) {
@@ -529,7 +514,7 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
                 service_id: item.item_id,
                 user_id: item.user_id,
                 price: item.price,
-                duration_minutes: item.duration,
+                duration: item.duration,
                 notes: item.notes,
                 status: item.status,
                 is_parallel: item.is_parallel,
@@ -542,7 +527,7 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
                 id: item.is_existing ? item.id : undefined,
                 product_id: item.item_id,
                 quantity: item.quantity,
-                price: item.price,
+                unit_price: item.price,
                 user_id: item.commission_user_id || null,
                 attention_combo_id: item.attention_combo_id,
               });
@@ -562,7 +547,7 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
                         service_id: subItem.item_id,
                         user_id: subItem.user_id,
                         price: 0,
-                        duration_minutes: subItem.duration,
+                        duration: subItem.duration,
                         notes: subItem.notes,
                         status: subItem.status,
                         is_parallel: subItem.is_parallel,
@@ -774,6 +759,8 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
                   salesSettings={salesSettings}
                   userRole={userRole}
                   isLoadingSalesSettings={isLoadingSalesSettings}
+                  onOpenSignConsentDialog={onOpenSignConsentDialog}
+                  clientId={clientId}
               />
           ))}
           </div>

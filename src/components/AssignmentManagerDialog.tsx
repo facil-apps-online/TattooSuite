@@ -151,6 +151,7 @@ export const AssignmentManagerDialog: React.FC<AssignmentManagerDialogProps> = (
       role_id: null, 
       branch_id: null, 
       status: 'active',
+      is_schedulable: false,
       base_salary: 0,
       default_product_commission_rate: 0,
       default_service_commission_rate: 0,

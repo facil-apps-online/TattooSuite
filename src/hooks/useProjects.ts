@@ -28,15 +28,12 @@ export interface ProjectImage {
   id: string;
   image_url: string;
   is_primary: boolean;
+  sort_order: number;
 }
 
 export interface ProjectCategory {
   id: string;
   name: string;
-  description?: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface Project {
@@ -47,11 +44,11 @@ export interface Project {
   upfront_price?: number;
   financed_price?: number;
   is_active: boolean;
-  default_payment_plan?: Array<{ session_number: number; percentage: number }>;
-  session_count?: { count: number }[];
+  session_count?: number; 
   sessions?: ProjectSession[];
-  treatment_images?: ProjectImage[];
-  categories?: { treatment_categories: ProjectCategory }[];
+  cover_image_url?: string;
+  categories?: ProjectCategory[];
+  project_images?: ProjectImage[]; // Renamed from treatment_images
   created_at: string;
   tenant_id: string;
 }
@@ -95,7 +92,10 @@ export interface ClientProjectDetails extends ClientProject {
 export const useProjects = (tenantId: string, type: 'treatment' | 'project', categoryId?: string, showInactive?: boolean) => {
   return useQuery<Project[], Error>({
     queryKey: ['projects', tenantId, type, categoryId, showInactive],
-    queryFn: () => fetchTenantAction('list_treatments', { tenant_id: tenantId, type: type, category_id: categoryId, show_inactive: showInactive }),
+    queryFn: async () => {
+      const result = await fetchTenantAction('list_treatments', { tenant_id: tenantId, type: type, category_id: categoryId, show_inactive: showInactive });
+      return result.data || [];
+    },
     enabled: !!tenantId,
   });
 };
@@ -104,7 +104,10 @@ export const useProjects = (tenantId: string, type: 'treatment' | 'project', cat
 export const useClientProjects = (clientId: string) => {
   return useQuery<ClientProject[], Error>({
     queryKey: ['client_projects', clientId],
-    queryFn: () => fetchTenantAction('get_client_treatments', { client_id: clientId }),
+    queryFn: async () => {
+      const result = await fetchTenantAction('get_client_treatments', { client_id: clientId });
+      return result.data || [];
+    },
     enabled: !!clientId,
   });
 };
@@ -113,7 +116,11 @@ export const useClientProjects = (clientId: string) => {
 export const useProjectDetails = (projectId: string) => {
   return useQuery<Project, Error>({
     queryKey: ['project_details', projectId],
-    queryFn: () => fetchTenantAction('get_treatment_details', { treatment_id: projectId }),
+    queryFn: async () => {
+      const result = await fetchTenantAction('get_treatment_details', { treatment_id: projectId });
+      // The RPC returns an array with a single object. We need to return that object.
+      return result.data?.[0] || null;
+    },
     enabled: !!projectId,
   });
 };
@@ -122,7 +129,11 @@ export const useProjectDetails = (projectId: string) => {
 export const useClientProjectDetails = (clientProjectId: string) => {
   return useQuery<ClientProjectDetails, Error>({
     queryKey: ['client_project_details', clientProjectId],
-    queryFn: () => fetchTenantAction('get_client_treatment_details', { client_treatment_id: clientProjectId }),
+    queryFn: async () => {
+      const result = await fetchTenantAction('get_client_treatment_details', { client_treatment_id: clientProjectId });
+      // The RPC returns an array with a single object. We need to return that object.
+      return result.data?.[0];
+    },
     enabled: !!clientProjectId,
   });
 };
@@ -255,7 +266,7 @@ export const useUpdateProjectImagesOrder = () => {
 
 // --- MUTATIONS ---
 
-// Assign a project to a client
+// Assign a project to a client (and its sessions)
 export const useAssignProjectToClient = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
@@ -264,17 +275,25 @@ export const useAssignProjectToClient = () => {
     return useMutation({
         mutationFn: (payload: {
             client_id: string;
-            project_id: string;
-            selected_price_type: 'upfront' | 'financed';
-            custom_final_price?: number;
+            treatment_id: string; // This is the prototype_id
+            name: string;
+            payment_type: 'upfront' | 'financed';
+            final_price: number;
             start_date: string;
-        }) => fetchTenantAction('assign_treatment_to_client', { ...payload, tenant_id: tenantId, treatment_id: payload.project_id }),
+            sessions: ProjectSession[];
+        }) => {
+            const fullPayload = {
+                ...payload,
+                tenant_id: tenantId,
+            };
+            return fetchTenantAction('assign_treatment_to_client', fullPayload);
+        },
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['client_projects', variables.client_id] });
-            toast({ title: "Proyecto Asignado", description: "El proyecto ha sido asignado al cliente.", variant: "success" });
+            toast({ title: "Proyecto Asignado", description: "El proyecto y sus sesiones han sido asignados al cliente.", variant: "success" });
         },
         onError: (error: Error) => {
-            toast({ title: "Error", description: error.message, variant: "destructive" });
+            toast({ title: "Error", description: `Hubo un problema al asignar el proyecto: ${error.message}`, variant: "destructive" });
         },
     });
 }
@@ -333,6 +352,32 @@ export const useDeleteProject = () => {
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+};
+
+// --- New Hook for Deleting a Client's Project ---
+export const useDeleteClientProject = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { tenantId } = useAuth();
+
+  return useMutation({
+    mutationFn: ({ client_project_id, client_id }: { client_project_id: string; client_id: string; }) => {
+        if (!tenantId) {
+            throw new Error("Tenant ID not found");
+        }
+        return fetchTenantAction('delete_client_treatment', { 
+            p_client_treatment_id: client_project_id,
+            p_tenant_id: tenantId 
+        });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['client_projects', variables.client_id] });
+      toast({ title: "Éxito", description: "El proyecto asignado ha sido eliminado.", variant: "success" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: `No se pudo eliminar el proyecto: ${error.message}`, variant: "destructive" });
     },
   });
 };

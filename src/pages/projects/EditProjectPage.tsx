@@ -28,7 +28,7 @@ const EditProjectPage = () => {
 
   const handleCategoryUpdates = async (newCategoryIds: string[]) => {
     const originalCategoryIds = (project?.categories || [])
-      .map(c => c.treatment_categories?.id)
+      .map(c => c.id)
       .filter((id): id is string => !!id)
       .sort();
     const sortedNewCategoryIds = [...newCategoryIds].sort();

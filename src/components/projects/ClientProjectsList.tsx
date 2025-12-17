@@ -1,11 +1,23 @@
 import React from 'react';
-import { useClientProjects, useClientProjectDetails, ClientProject } from '@/hooks/useProjects';
+import { useClientProjects, useClientProjectDetails, ClientProject, useDeleteClientProject } from '@/hooks/useProjects';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePriceFormat } from '@/hooks/usePriceFormat';
-import { CheckCircle2, Circle, LucideIcon } from 'lucide-react';
+import { CheckCircle2, Circle, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const ProjectDetailContent = ({ clientProjectId }: { clientProjectId: string }) => {
     const { data: details, isLoading, error } = useClientProjectDetails(clientProjectId);
@@ -31,7 +43,7 @@ const ProjectDetailContent = ({ clientProjectId }: { clientProjectId: string }) 
                         </div>
                     </div>
                     {session.payment_due && (
-                        <div className="text-right">
+                        <div className="text-right pr-4"> 
                             <p className="font-semibold">{formatPrice(session.payment_due.amount)}</p>
                             <Badge variant={session.payment_due.status === 'paid' ? 'success' : 'destructive'}>
                                 {session.payment_due.status === 'paid' ? 'Pagado' : 'Pendiente'}
@@ -46,6 +58,7 @@ const ProjectDetailContent = ({ clientProjectId }: { clientProjectId: string }) 
 
 export const ClientProjectsList = ({ clientId }: { clientId: string }) => {
     const { data: projects, isLoading, error } = useClientProjects(clientId);
+    const { mutate: deleteProject, isPending: isDeleting } = useDeleteClientProject();
 
     if (isLoading) {
         return (
@@ -76,9 +89,42 @@ export const ClientProjectsList = ({ clientId }: { clientId: string }) => {
                                         Progreso: {project.progress.completed} de {project.progress.total} sesiones
                                     </p>
                                 </div>
-                                <Badge variant={project.status === 'completed' ? 'success' : 'default'} className="capitalize">
-                                    {project.status}
-                                </Badge>
+                                <div className="flex items-center gap-4">
+                                    <Badge variant={project.status === 'completed' ? 'success' : 'default'} className="capitalize">
+                                        {project.status}
+                                    </Badge>
+                                    {project.progress.completed === 0 && (
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={(e) => e.stopPropagation()} // Prevent accordion from toggling
+                                                    disabled={isDeleting}
+                                                >
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        Esta acción no se puede deshacer. Se eliminará permanentemente el proyecto asignado y todos sus datos.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                    <AlertDialogAction
+                                                        onClick={() => deleteProject({ client_project_id: project.id, client_id: clientId })}
+                                                        disabled={isDeleting}
+                                                    >
+                                                        Eliminar
+                                                    </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    )}
+                                </div>
                             </div>
                         </AccordionTrigger>
                         <AccordionContent>

@@ -41,6 +41,9 @@ import { AttentionsCard } from '@/components/AttentionsCard';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ClientProjectsList } from '@/components/projects/ClientProjectsList';
+import { AssignProjectDialog } from '@/components/projects/AssignProjectDialog';
+import { useClientProjects } from '@/hooks/useProjects';
 
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -48,6 +51,7 @@ export default function ClientDetailPage() {
   const { toast } = useToast();
   const { data: client, isLoading, error } = useClientDetails(id || '');
   const { data: subClients, isLoading: isLoadingSubClients } = useSubClients(id || '');
+  const { data: clientProjects, isLoading: isLoadingClientProjects } = useClientProjects(id || '');
   const updateMutation = useUpdateClient();
   const { data: branches, isLoading: isLoadingBranches } = useBranches();
   const assignClientToBranch = useAssignClientToBranch();
@@ -310,6 +314,7 @@ export default function ClientDetailPage() {
                     <SelectItem value="family">Familiares</SelectItem>
                     <SelectItem value="forms-consents">Formularios</SelectItem>
                     <SelectItem value="attentions">Atenciones</SelectItem>
+                    <SelectItem value="projects">Proyectos</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -336,6 +341,7 @@ export default function ClientDetailPage() {
                     <TabsTrigger type="button" value="family">Familiares</TabsTrigger>
                     <TabsTrigger type="button" value="forms-consents">Formularios</TabsTrigger>
                     <TabsTrigger type="button" value="attentions">Atenciones</TabsTrigger>
+                    <TabsTrigger type="button" value="projects">Proyectos</TabsTrigger>
                   </TabsList>
                 </div>
                 {showRightArrow && (
@@ -588,6 +594,19 @@ export default function ClientDetailPage() {
             </TabsContent>
             <TabsContent value="attentions" className="mt-4">
               <AttentionsCard clientId={id} />
+            </TabsContent>
+            <TabsContent value="projects" className="mt-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Proyectos Asignados</CardTitle>
+                  <AssignProjectDialog client={client} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['client_projects', id] })}>
+                    <Button size="sm"><PlusCircle className="w-4 h-4 mr-2" />Asignar Proyecto</Button>
+                  </AssignProjectDialog>
+                </CardHeader>
+                <CardContent>
+                  <ClientProjectsList clientId={id || ''} />
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
           <div className="flex justify-end pt-8">

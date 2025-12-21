@@ -10,7 +10,7 @@ interface PageHeaderProps {
 export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, backButton, children }) => {
   return (
     <div className="flex justify-between items-start mb-6">
-      <div className="flex items-start gap-4">
+      <div className="flex items-center gap-4">
         {backButton}
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-primary">{title}</h1>

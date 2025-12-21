@@ -27,6 +27,9 @@ import EditSupplierPage from "@/pages/Suppliers/EditSupplierPage";
 import BranchProductsPage from "@/pages/Inventory/BranchProductsPage";
 import { PurchasesPage } from "@/pages/Inventory/PurchasesPage";
 import { TransfersPage } from "@/pages/Inventory/TransfersPage";
+import ExpenseProvidersPage from "@/pages/expenses/ExpenseProvidersPage";
+import EditExpenseProviderPage from "@/pages/expenses/EditExpenseProviderPage";
+import ExpensesPage from "@/pages/expenses/ExpensesPage";
 import TimeOffManagementPage from "@/pages/TimeOffManagementPage";
 import TimeOffHistoryPage from "@/pages/TimeOffHistoryPage";
 import CommissionsPage from "@/pages/CommissionsPage";
@@ -110,6 +113,12 @@ function App() {
                   <Route path="branch-products" element={<BranchProductsPage />} />
                   <Route path="purchases" element={<PurchasesPage />} />
                   <Route path="transfers" element={<TransfersPage />} />
+                </Route>
+                {/* Nuevas rutas para Gastos */}
+                <Route path="expenses">
+                  <Route index element={<ExpensesPage />} />
+                  <Route path="providers" element={<ExpenseProvidersPage />} />
+                  <Route path="providers/edit/:id" element={<EditExpenseProviderPage />} />
                 </Route>
                 <Route path="services" element={<Services />} />
                 <Route path="services/:id" element={<ServiceDetailPage />} />

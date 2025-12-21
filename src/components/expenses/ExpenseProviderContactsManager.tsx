@@ -5,30 +5,67 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Edit, Trash2 } from "lucide-react";
-import { useSupplierContacts, useCreateSupplierContact, useUpdateSupplierContact, useDeleteSupplierContact } from "@/hooks/useSupplierRelations";
-import type { SupplierContact } from "@/hooks/useSupplierRelations";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchTenantAction } from "@/lib/fetchTenantAction";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { useGetContactTypes } from "@/hooks/useContactTypes"; // Assuming this hook exists and is generic
 
-import { useGetContactTypes } from "@/hooks/useContactTypes";
+interface ExpenseProviderContact {
+    id: string;
+    expense_provider_id: string;
+    contact_type_id: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    contact_types: { name: string }; // Joined relation
+}
 
 const contactFormSchema = z.object({
     contact_type_id: z.string().min(1, "El tipo de contacto es requerido."),
     name: z.string().min(1, "El nombre es requerido."),
-    email: z.string().email("Debe ser un email válido.").optional().or(z.literal('')),
-    phone: z.string().optional(),
+    email: z.string().email("Debe ser un email válido.").nullable().optional().or(z.literal('')),
+    phone: z.string().nullable().optional(),
 });
 
 type ContactFormValues = z.infer<typeof contactFormSchema>;
 
-export const SupplierContactDialog = ({ supplierId, contact, children }: { supplierId: string, contact?: SupplierContact, children: React.ReactNode }) => {
+export const ExpenseProviderContactDialog = ({ providerId, contact, children }: { providerId: string, contact?: ExpenseProviderContact, children: React.ReactNode }) => {
     const [open, setOpen] = useState(false);
-    const createMutation = useCreateSupplierContact();
-    const updateMutation = useUpdateSupplierContact();
-    const { data: contactTypes, isLoading: isLoadingContactTypes } = useGetContactTypes('supplier');
+    const { toast } = useToast();
+    const queryClient = useQueryClient();
+
+    const createMutation = useMutation({
+        mutationFn: (newContact: ContactFormValues & { expense_provider_id: string }) =>
+            fetchTenantAction("create-expense-provider-contact", newContact),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["expenseProviderContacts", providerId] });
+            toast({ title: "Contacto creado exitosamente." });
+            setOpen(false);
+        },
+        onError: (error: any) => {
+            toast({ title: "Error", description: error.message, variant: "destructive" });
+        },
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: (updatedContact: ContactFormValues & { id: string }) =>
+            fetchTenantAction("update-expense-provider-contact", updatedContact),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["expenseProviderContacts", providerId] });
+            toast({ title: "Contacto actualizado exitosamente." });
+            setOpen(false);
+        },
+        onError: (error: any) => {
+            toast({ title: "Error", description: error.message, variant: "destructive" });
+        },
+    });
+
+    const { data: contactTypes, isLoading: isLoadingContactTypes } = useGetContactTypes();
 
     const form = useForm<ContactFormValues>({
         resolver: zodResolver(contactFormSchema),
@@ -43,7 +80,12 @@ export const SupplierContactDialog = ({ supplierId, contact, children }: { suppl
     useEffect(() => {
         if (open) {
             if (contact) {
-                form.reset(contact);
+                form.reset({
+                    contact_type_id: contact.contact_type_id,
+                    name: contact.name,
+                    email: contact.email,
+                    phone: contact.phone,
+                });
             } else {
                 form.reset({
                     contact_type_id: '',
@@ -57,9 +99,9 @@ export const SupplierContactDialog = ({ supplierId, contact, children }: { suppl
 
     const onSubmit = (values: ContactFormValues) => {
         if (contact) {
-            updateMutation.mutate({ ...values, id: contact.id }, { onSuccess: () => setOpen(false) });
+            updateMutation.mutate({ ...values, id: contact.id });
         } else {
-            createMutation.mutate({ ...values, supplier_id: supplierId }, { onSuccess: () => setOpen(false) });
+            createMutation.mutate({ ...values, expense_provider_id: providerId });
         }
     };
 
@@ -78,7 +120,7 @@ export const SupplierContactDialog = ({ supplierId, contact, children }: { suppl
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Tipo de Contacto</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value || ''}>
+                                    <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingContactTypes}>
                                         <FormControl>
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Selecciona un tipo" />
@@ -88,7 +130,7 @@ export const SupplierContactDialog = ({ supplierId, contact, children }: { suppl
                                             {isLoadingContactTypes ? (
                                                 <SelectItem value="loading" disabled>Cargando...</SelectItem>
                                             ) : (
-                                                contactTypes?.map(ct => (
+                                                contactTypes?.filter(ct => ct.is_for_supplier).map(ct => ( // Reusing is_for_supplier for now
                                                     <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>
                                                 ))
                                             )}
@@ -139,7 +181,9 @@ export const SupplierContactDialog = ({ supplierId, contact, children }: { suppl
                         />
                         <div className="flex justify-end gap-2">
                             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-                            <Button type="submit">Guardar</Button>
+                            <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+                                {createMutation.isPending || updateMutation.isPending ? 'Guardando...' : 'Guardar'}
+                            </Button>
                         </div>
                     </form>
                 </Form>
@@ -148,9 +192,26 @@ export const SupplierContactDialog = ({ supplierId, contact, children }: { suppl
     );
 };
 
-export const SupplierContactsManager = ({ supplierId }: { supplierId: string }) => {
-    const { data: contacts, isLoading } = useSupplierContacts(supplierId);
-    const { mutate: deleteContact } = useDeleteSupplierContact();
+export const ExpenseProviderContactsManager = ({ providerId }: { providerId: string }) => {
+    const { data: contacts, isLoading } = useQuery<ExpenseProviderContact[]>({
+        queryKey: ["expenseProviderContacts", providerId],
+        queryFn: () => fetchTenantAction("get-expense-provider-contacts", { providerId }),
+        enabled: !!providerId,
+    });
+
+    const { toast } = useToast();
+    const queryClient = useQueryClient();
+
+    const deleteMutation = useMutation({
+        mutationFn: (id: string) => fetchTenantAction("delete-expense-provider-contact", { id }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["expenseProviderContacts", providerId] });
+            toast({ title: "Contacto eliminado exitosamente." });
+        },
+        onError: (error: any) => {
+            toast({ title: "Error", description: error.message, variant: "destructive" });
+        },
+    });
 
     if (isLoading) {
         return (
@@ -173,19 +234,18 @@ export const SupplierContactsManager = ({ supplierId }: { supplierId: string }) 
 
     return (
         <div>
-
             <div className="space-y-4">
                 {contacts?.map(contact => (
                     <Card key={contact.id}>
                         <CardHeader className="flex flex-row items-center justify-between">
                             <CardTitle className="capitalize">{contact.contact_types.name}</CardTitle>
                             <div className="flex items-center gap-2">
-                                <SupplierContactDialog supplierId={supplierId} contact={contact}>
+                                <ExpenseProviderContactDialog providerId={providerId} contact={contact}>
                                     <Button variant="ghost" size="icon">
                                         <Edit className="w-4 h-4" />
                                     </Button>
-                                </SupplierContactDialog>
-                                <Button variant="ghost" size="icon" onClick={() => deleteContact({ id: contact.id })}>
+                                </ExpenseProviderContactDialog>
+                                <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(contact.id)}>
                                     <Trash2 className="w-4 h-4" />
                                 </Button>
                             </div>

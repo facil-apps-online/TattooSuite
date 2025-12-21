@@ -13,6 +13,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchTenantAction } from "@/lib/fetchTenantAction";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useGetContactTypes } from "@/hooks/useContactTypes"; // Assuming this hook exists and is generic
 
 interface ExpenseProviderContact {
@@ -44,7 +45,7 @@ export const ExpenseProviderContactDialog = ({ providerId, contact, children }: 
             fetchTenantAction("create-expense-provider-contact", newContact),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["expenseProviderContacts", providerId] });
-            toast({ title: "Contacto creado exitosamente." });
+            toast({ title: "Éxito", description: "Contacto creado exitosamente.", variant: "success" });
             setOpen(false);
         },
         onError: (error: any) => {
@@ -57,7 +58,7 @@ export const ExpenseProviderContactDialog = ({ providerId, contact, children }: 
             fetchTenantAction("update-expense-provider-contact", updatedContact),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["expenseProviderContacts", providerId] });
-            toast({ title: "Contacto actualizado exitosamente." });
+            toast({ title: "Éxito", description: "Contacto actualizado exitosamente.", variant: "success" });
             setOpen(false);
         },
         onError: (error: any) => {
@@ -193,6 +194,9 @@ export const ExpenseProviderContactDialog = ({ providerId, contact, children }: 
 };
 
 export const ExpenseProviderContactsManager = ({ providerId }: { providerId: string }) => {
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+
     const { data: contacts, isLoading } = useQuery<ExpenseProviderContact[]>({
         queryKey: ["expenseProviderContacts", providerId],
         queryFn: () => fetchTenantAction("get-expense-provider-contacts", { providerId }),
@@ -206,12 +210,21 @@ export const ExpenseProviderContactsManager = ({ providerId }: { providerId: str
         mutationFn: (id: string) => fetchTenantAction("delete-expense-provider-contact", { id }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["expenseProviderContacts", providerId] });
-            toast({ title: "Contacto eliminado exitosamente." });
+            toast({ title: "Éxito", description: "Contacto eliminado exitosamente.", variant: "success" });
+            setIsDeleteDialogOpen(false);
+            setSelectedContactId(null);
         },
         onError: (error: any) => {
             toast({ title: "Error", description: error.message, variant: "destructive" });
+            setIsDeleteDialogOpen(false);
+            setSelectedContactId(null);
         },
     });
+
+    const handleDeleteClick = (id: string) => {
+        setSelectedContactId(id);
+        setIsDeleteDialogOpen(true);
+    };
 
     if (isLoading) {
         return (
@@ -219,7 +232,7 @@ export const ExpenseProviderContactsManager = ({ providerId }: { providerId: str
                 {[...Array(2)].map((_, i) => (
                     <Card key={i}>
                         <CardHeader>
-                            <Skeleton className="h-6 w-1/4" />
+                            <Skeleton className="h-6 w-1/fource" />
                         </CardHeader>
                         <CardContent className="space-y-2">
                             <Skeleton className="h-4 w-1/2" />
@@ -245,7 +258,7 @@ export const ExpenseProviderContactsManager = ({ providerId }: { providerId: str
                                         <Edit className="w-4 h-4" />
                                     </Button>
                                 </ExpenseProviderContactDialog>
-                                <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(contact.id)}>
+                                <Button variant="ghost" size="icon" onClick={(e) => { e.preventDefault(); handleDeleteClick(contact.id); }}>
                                     <Trash2 className="w-4 h-4" />
                                 </Button>
                             </div>
@@ -258,6 +271,15 @@ export const ExpenseProviderContactsManager = ({ providerId }: { providerId: str
                     </Card>
                 ))}
             </div>
+            <ConfirmationDialog
+                open={isDeleteDialogOpen}
+                onOpenChange={(open) => !open && setIsDeleteDialogOpen(false)}
+                onConfirm={() => selectedContactId && deleteMutation.mutate(selectedContactId)}
+                title="¿Estás seguro?"
+                description="Esta acción eliminará el contacto permanentemente."
+                isConfirming={deleteMutation.isPending}
+                variant="destructive"
+            />
         </div>
     );
 };

@@ -13,8 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ChatterBox } from '@/components/ChatterBox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ExpenseProviderContactsManager } from '@/components/expenses/ExpenseProviderContactsManager'; // To be created
-import { ExpenseProviderContactDialog } from '@/components/expenses/ExpenseProviderContactDialog'; // To be created
+import { ExpenseProviderContactsManager, ExpenseProviderContactDialog } from '@/components/expenses/ExpenseProviderContactsManager';
 import { ExpenseProviderAddressesManager } from '@/components/expenses/ExpenseProviderAddressesManager'; // To be created
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from "@/components/ui/input";
@@ -321,18 +320,19 @@ export default function EditExpenseProviderPage() {
                                 </Card>
                             )}
                             {activeTab === 'addresses' && (
-                                <Card>
+                                <div>
                                     <CardHeader>
                                         <div className="flex justify-between items-center">
                                             <CardTitle>Direcciones Adicionales</CardTitle>
                                             <Button type="button" variant="outline" size="icon" onClick={() => setIsAddingAddress(!isAddingAddress)}>
-                                                                                                 <Plus className="h-4 w-4" />
-                                                                                             </Button>
-                                                                                         </div>
-                                                                                     </CardHeader>
-                                                                                     <CardContent className="pt-6">                                        <ExpenseProviderAddressesManager providerId={expenseProvider.id} isAdding={isAddingAddress} setIsAdding={setIsAddingAddress} />
+                                                <Plus className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="pt-6">
+                                        <ExpenseProviderAddressesManager providerId={expenseProvider.id} isAdding={isAddingAddress} setIsAdding={setIsAddingAddress} />
                                     </CardContent>
-                                </Card>
+                                </div>
                             )}
                         </div>
                     </div>
@@ -444,20 +444,18 @@ export default function EditExpenseProviderPage() {
                                 </Card>
                             </TabsContent>
                             <TabsContent value="addresses">
-                                    <Card>
-                                        <CardHeader>
-                                            <div className="flex justify-between items-center">
-                                                <CardTitle>Direcciones Adicionales</CardTitle>
-                                                <Button type="button" variant="outline" onClick={() => setIsAddingAddress(!isAddingAddress)}>
-                                                    <Plus className="h-4 w-4 mr-2" />
-                                                    Añadir Dirección
-                                                </Button>
-                                            </div>
-                                        </CardHeader>
-                                        <CardContent className="pt-6">
-                                            <ExpenseProviderAddressesManager providerId={expenseProvider.id} isAdding={isAddingAddress} setIsAdding={setIsAddingAddress} />
-                                        </CardContent>
-                                    </Card>
+                                <CardHeader>
+                                    <div className="flex justify-between items-center">
+                                        <CardTitle>Direcciones Adicionales</CardTitle>
+                                        <Button type="button" variant="outline" onClick={() => setIsAddingAddress(!isAddingAddress)}>
+                                            <Plus className="h-4 w-4 mr-2" />
+                                            Añadir Dirección
+                                        </Button>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="pt-6">
+                                    <ExpenseProviderAddressesManager providerId={expenseProvider.id} isAdding={isAddingAddress} setIsAdding={setIsAddingAddress} />
+                                </CardContent>
                             </TabsContent>
                         </Tabs>
                     </div>

@@ -13,6 +13,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchTenantAction } from "@/lib/fetchTenantAction";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 
 interface ExpenseProviderAddress {
     id: string;
@@ -51,7 +52,7 @@ const ExpenseProviderAddressFormCard = ({ providerId, address, onSave, onCancel 
             fetchTenantAction("create-expense-provider-address", newAddress),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["expenseProviderAddresses", providerId] });
-            toast({ title: "Dirección creada exitosamente.", variant: "success" });
+            toast({ title: "Éxito", description: "Dirección creada exitosamente.", variant: "success" });
             onSave();
         },
         onError: (error: any) => {
@@ -64,7 +65,7 @@ const ExpenseProviderAddressFormCard = ({ providerId, address, onSave, onCancel 
             fetchTenantAction("update-expense-provider-address", updatedAddress),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["expenseProviderAddresses", providerId] });
-            toast({ title: "Dirección actualizada exitosamente.", variant: "success" });
+            toast({ title: "Éxito", description: "Dirección actualizada exitosamente.", variant: "success" });
             onSave();
         },
         onError: (error: any) => {
@@ -214,19 +215,29 @@ export const ExpenseProviderAddressesManager = ({ providerId, isAdding, setIsAdd
 
     const { toast } = useToast();
     const queryClient = useQueryClient();
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+    const [editingAddress, setEditingAddress] = useState<ExpenseProviderAddress | null>(null);
 
     const deleteMutation = useMutation({
         mutationFn: (id: string) => fetchTenantAction("delete-expense-provider-address", { id }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["expenseProviderAddresses", providerId] });
-            toast({ title: "Dirección eliminada exitosamente." });
+            toast({ title: "Éxito", description: "Dirección eliminada exitosamente.", variant: "success" });
+            setIsDeleteDialogOpen(false);
+            setSelectedAddressId(null);
         },
         onError: (error: any) => {
             toast({ title: "Error", description: error.message, variant: "destructive" });
+            setIsDeleteDialogOpen(false);
+            setSelectedAddressId(null);
         },
     });
 
-    const [editingAddress, setEditingAddress] = useState<ExpenseProviderAddress | null>(null);
+    const handleDeleteClick = (id: string) => {
+        setSelectedAddressId(id);
+        setIsDeleteDialogOpen(true);
+    };
 
     if (isLoading) {
         return (
@@ -271,10 +282,10 @@ export const ExpenseProviderAddressesManager = ({ providerId, isAdding, setIsAdd
                         <CardHeader className="flex flex-row items-center justify-between">
                             <CardTitle>{address.name}</CardTitle>
                             <div className="flex items-center gap-2">
-                                <Button variant="ghost" size="icon" onClick={() => { setEditingAddress(address); setIsAdding(true); }}>
+                                <Button type="button" variant="ghost" size="icon" onClick={() => { setEditingAddress(address); setIsAdding(true); }}>
                                     <Edit className="w-4 h-4" />
                                 </Button>
-                                <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(address.id)}>
+                                <Button type="button" variant="ghost" size="icon" onClick={() => handleDeleteClick(address.id)}>
                                     <Trash2 className="w-4 h-4" />
                                 </Button>
                             </div>
@@ -293,6 +304,15 @@ export const ExpenseProviderAddressesManager = ({ providerId, isAdding, setIsAdd
                     </Card>
                 ))}
             </div>
+            <ConfirmationDialog
+                open={isDeleteDialogOpen}
+                onOpenChange={(open) => !open && setIsDeleteDialogOpen(false)}
+                onConfirm={() => selectedAddressId && deleteMutation.mutate(selectedAddressId)}
+                title="¿Estás seguro?"
+                description="Esta acción eliminará la dirección permanentemente."
+                isConfirming={deleteMutation.isPending}
+                variant="destructive"
+            />
         </div>
     );
 };

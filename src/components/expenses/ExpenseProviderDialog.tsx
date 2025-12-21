@@ -34,16 +34,10 @@ interface ExpenseProvider {
 
 const formSchema = z.object({
   name: z.string().min(1, "El nombre es requerido."),
-  document_type_id: z.string().min(1, "El tipo de documento es requerido."),
-  identification_number: z.string().min(1, "El número de documento es requerido."),
+  document_type_id: z.string().min(1, "El tipo de documento es requerido.").optional().nullable(),
+  identification_number: z.string().min(1, "El número de documento es requerido.").optional().nullable(),
   phone: z.string().optional().nullable(),
   email: z.string().email("Debe ser un email válido.").optional().or(z.literal('')),
-  address_line_1: z.string().optional().nullable(),
-  address_line_2: z.string().optional().nullable(),
-  city: z.string().optional().nullable(),
-  state: z.string().optional().nullable(),
-  postal_code: z.string().optional().nullable(),
-  country: z.string().optional().nullable(),
 });
 
 type ExpenseProviderFormValues = z.infer<typeof formSchema>;
@@ -70,12 +64,6 @@ export const ExpenseProviderDialog = ({ provider: initialProvider, trigger, onOp
         identification_number: '',
         phone: '',
         email: '',
-        address_line_1: '',
-        address_line_2: '',
-        city: '',
-        state: '',
-        postal_code: '',
-        country: '',
     },
   });
 
@@ -128,7 +116,13 @@ export const ExpenseProviderDialog = ({ provider: initialProvider, trigger, onOp
             email: initialProvider.email || '',
         });
     } else if (open && !initialProvider) {
-        form.reset({});
+        form.reset({
+            name: '',
+            document_type_id: '',
+            identification_number: '',
+            phone: '',
+            email: '',
+        });
     }
   }, [open, initialProvider, form]);
 
@@ -178,16 +172,11 @@ export const ExpenseProviderDialog = ({ provider: initialProvider, trigger, onOp
                   )} />
                   <FormField control={form.control} name="identification_number" render={({ field }) => (<FormItem><FormLabel>Número de Identificación</FormLabel><FormControl><Input {...field} placeholder="Ej: 123456789-0" required /></FormControl><FormMessage /></FormItem>)} />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input type="tel" {...field} value={field.value || ''} placeholder="Ej: +57 3001234567" /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="email" render={({ field }) => (<FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} value={field.value || ''} placeholder="contacto@proveedor.com" /></FormControl><FormMessage /></FormItem>)} />
-                </div>
-                 <FormField control={form.control} name="address_line_1" render={({ field }) => (<FormItem><FormLabel>Dirección</FormLabel><FormControl><Input {...field} value={field.value || ''} placeholder="Carrera 1 #2-3" /></FormControl><FormMessage /></FormItem>)} />
-                 <FormField control={form.control} name="city" render={({ field }) => (<FormItem><FormLabel>Ciudad</FormLabel><FormControl><Input {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                 <FormField control={form.control} name="state" render={({ field }) => (<FormItem><FormLabel>Departamento/Estado</FormLabel><FormControl><Input {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                 <FormField control={form.control} name="country" render={({ field }) => (<FormItem><FormLabel>País</FormLabel><FormControl><Input {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-              </TabsContent>
-
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input type="tel" {...field} value={field.value || ''} placeholder="Ej: +57 3001234567" /></FormControl><FormMessage /></FormItem>)} />
+                                    <FormField control={form.control} name="email" render={({ field }) => (<FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} value={field.value || ''} placeholder="contacto@proveedor.com" /></FormControl><FormMessage /></FormItem>)} />
+                                </div>
+                              </TabsContent>
               <TabsContent value="activity">
                 {initialProvider && tenantId && (
                   <ChatterBox

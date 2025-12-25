@@ -9,10 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { useClients } from "@/hooks/useClients";
 import { useBranchServicesAndCombos } from "@/hooks/useServices";
 import { useBranchProducts } from "@/hooks/useProducts";
-import { useCreateAttention } from "@/hooks/useAttentions";
+import { useCreateAttention, useConfirmAttention } from "@/hooks/useAttentions";
 import { useUpdateAttentionItems } from "@/hooks/useUpdateAttentionItems";
 import { useAuth } from "@/contexts/AuthContext";
 import { Eye, Plus, Clock } from "lucide-react";
+import { useClientProjects } from "@/hooks/useProjects";
 import { FilterableSelect } from "./FilterableSelect";
 import { debounce } from "@/lib/utils";
 import DatePicker, { registerLocale } from "react-datepicker";
@@ -31,7 +32,9 @@ import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { usePaymentEvidence } from "@/hooks/usePaymentEvidence";
 import { ImagePreviewDialog } from "./ImagePreviewDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AssignConsentDialog } from "./dialogs/AssignConsentDialog";
 import { useSignedConsentsForAttention } from "@/hooks/useConsentTemplates";
+import { AddProjectSessionDialog } from "./projects/AddProjectSessionDialog";
 
 registerLocale("es", es);
 
@@ -41,7 +44,6 @@ interface AttentionFormProps {
   initialDate?: Date;
   attention?: any | null;
   screenSize: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
-  onOpenSignConsentDialog: (consent: SignedConsent, attention: any) => void;
 }
 
 // MODIFICACIÓN: Componente interno para manejar la lógica de la vista previa
@@ -107,8 +109,9 @@ const TimePickerButton = forwardRef<
 TimePickerButton.displayName = "TimePickerButton";
 
 
-export const AttentionForm = ({ branchId, onFinished, initialDate, attention = null, screenSize, onOpenSignConsentDialog }: AttentionFormProps) => {
+export const AttentionForm = ({ branchId, onFinished, initialDate, attention = null, screenSize }: AttentionFormProps) => {
   const { toast } = useToast();
+
   const isMobile = screenSize === 'sm' || screenSize === 'md';
   const isEditMode = !!attention;
 
@@ -134,12 +137,15 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
   const debouncedSetItemSearchTerm = useMemo(() => debounce(setItemSearchTerm, 300), []);
 
   // --- Data Fetching Hooks ---
+  const { data: clientProjects, isLoading: isLoadingClientProjects } = useClientProjects(clientId);
   const { data: clients } = useClients(clientSearchTerm);
   const { data: branchServicesAndCombos, isLoading: isLoadingItems } = useBranchServicesAndCombos(branchId, itemSearchTerm);
   const { data: branchProducts } = useBranchProducts(branchId, itemSearchTerm);
   const createAttentionMutation = useCreateAttention();
   const updateAttentionItemsMutation = useUpdateAttentionItems();
+  const confirmAttentionMutation = useConfirmAttention();
   const { data: availablePaymentMethods } = usePaymentMethods(attention?.tenant_id);
+  const { data: signedConsents, isLoading: isLoadingSignedConsents } = useSignedConsentsForAttention(attention?.id); // ADD THIS LINE
 
   
   // --- Context and Other Hooks ---
@@ -161,30 +167,29 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
 
       const comboMap = new Map();
 
-      const combos = (attention.attention_combos ?? []).map(c => {
-        const comboItem = {
-          id: c.id,
-          type: 'combo' as const,
-          item_id: c.combo_id,
-          user_name: `${c.users?.first_name || ''} ${c.users?.last_name || ''}`.trim(),
-          price: c.price,
-          quantity: c.quantity || 1,
-          notes: c.notes || '', // Fallback to empty string
-          item_name: c.combos?.name,
-          duration: c.combos?.duration_minutes || 0,
-          is_existing: true,
-          status: c.status,
-          start_time: c.start_time || '', // Fallback to empty string
-          end_time: c.end_time || '', // Fallback to empty string
-          is_parallel: c.is_parallel || false, // Fallback to false
-          parallel_group_id: c.parallel_group_id || null, // Fallback to null
-          offset_minutes: c.offset_minutes || 0, // Fallback to 0
-          items: [], // Initialize with empty items
-        };
-        comboMap.set(c.id, comboItem);
-        return comboItem;
-      });
-
+                const combos = (attention.attention_combos ?? []).map(c => {
+                  const comboItem = {
+                    id: c.id,
+                    type: 'combo' as const,
+                    item_id: c.combo_id,
+                    // user_id: c.user_id, // Removed as per user clarification
+                    user_name: `${c.users?.first_name || ''} ${c.users?.last_name || ''}`.trim(),
+                    price: c.price,
+                    quantity: c.quantity || 1,
+                    notes: c.notes || '', // Fallback to empty string
+                    item_name: c.combos?.name,
+                    is_existing: true,
+                    status: c.status,
+                    start_time: c.start_time || '', // Fallback to empty string
+                    end_time: c.end_time || '', // Fallback to empty string
+                    is_parallel: c.is_parallel || false, // Fallback to false
+                    parallel_group_id: c.parallel_group_id || null, // Fallback to null
+                    offset_minutes: c.offset_minutes || 0, // Fallback to 0
+                    items: [], // Initialize with empty items
+                  };
+                  comboMap.set(c.id, comboItem);
+                  return comboItem;
+                });
       const services = (attention.attention_services ?? []).map(s => ({
         id: s.id,
         type: 'service' as const,
@@ -193,7 +198,7 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
         user_name: `${s.users?.first_name || ''} ${s.users?.last_name || ''}`.trim(),
         price: s.service_price,
         quantity: 1,
-        duration: s.duration_minutes || 0,
+        duration: s.duration_minutes,
         notes: s.notes,
         item_name: s.services?.name,
         is_existing: true,
@@ -203,7 +208,7 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
         status_history: s.status_history,
         is_parallel: s.is_parallel,
         parallel_group_id: s.parallel_group_id,
-        offset_minutes: s.offset_minutes || 0,
+        offset_minutes: s.offset_minutes,
         attention_combo_id: s.attention_combo_id,
       }));
 
@@ -252,7 +257,44 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
         }
       }
 
-      const allItems = [...combos, ...standaloneItems];
+      // Calculate combo duration after populating items
+      for (const combo of comboMap.values()) {
+        combo.duration = combo.items.reduce((totalDuration, currentItem) => {
+          if (currentItem.type === 'service') {
+            return totalDuration + (currentItem.duration || 0);
+          }
+          return totalDuration;
+        }, 0);
+      }
+
+      const explicitItems = [...combos, ...standaloneItems];
+      const explicitItemsTotal = explicitItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+
+      const projectAmount = (attention.total_amount || 0) - explicitItemsTotal;
+
+      let allItems = explicitItems;
+
+      if (projectAmount > 0.01) { // Use a small threshold for floating point issues
+        const projectPaymentItem: ItemForm = {
+          id: uuidv4(),
+          type: 'payment',
+          item_id: 'project-payment-calculated',
+          item_name: 'Cobro de Proyecto(s)',
+          price: projectAmount,
+          quantity: 1,
+          is_existing: true, // Treat as existing to prevent easy editing/deletion
+          status: 'Pendiente',
+          user_id: '',
+          start_time: '',
+          end_time: '',
+          is_parallel: false,
+          parallel_group_id: null,
+          offset_minutes: 0,
+          is_project_session_item: true, // Mark as part of a project
+        };
+        allItems = [...explicitItems, projectPaymentItem];
+      }
+      
       setItems(allItems);
       setInitialItems(JSON.parse(JSON.stringify(allItems))); // Deep copy
     }
@@ -358,47 +400,53 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
     if (!attentionDateTime) return;
 
     const newItems = JSON.parse(JSON.stringify(items));
-    let timelineEndTime = new Date(attentionDateTime);
     let lastSequentialItemStartTime = new Date(attentionDateTime);
 
     for (let i = 0; i < newItems.length; i++) {
       const item = newItems[i];
       
-      if (item.type === 'product') continue;
+      if (item.type === 'product' || item.type === 'payment') continue;
 
       let currentItemStartTime;
+
       if (item.is_parallel) {
+        // An parallel item always calculates from the start time of the last SEQUENTIAL item.
         currentItemStartTime = addMinutes(lastSequentialItemStartTime, item.offset_minutes || 0);
       } else {
+        // A sequential item cannot start until all previous items (including parallels) have finished.
+        // We calculate the actual end of the previous "group" before assigning the start time.
+        let timelineEndTime = new Date(attentionDateTime);
+        const previousItems = newItems.slice(0, i);
+        const previousEndTimes = previousItems
+          .filter(p => p.end_time && (p.type === 'service' || p.type === 'combo'))
+          .map(p => {
+            const [h, m] = p.end_time.split(':').map(Number);
+            return setHours(setMinutes(new Date(attentionDateTime), m), h);
+          });
+        
+        if (previousEndTimes.length > 0) {
+            timelineEndTime = new Date(Math.max(...previousEndTimes.map(d => d.getTime())));
+        }
+
         currentItemStartTime = new Date(timelineEndTime);
-        lastSequentialItemStartTime = currentItemStartTime;
+        lastSequentialItemStartTime = currentItemStartTime; // This is a new sequential item, so it's the new reference
       }
 
       item.start_time = format(currentItemStartTime, 'HH:mm');
-      let itemEndTime = addMinutes(currentItemStartTime, (item.duration || 0) * item.quantity);
+      const itemEndTime = addMinutes(currentItemStartTime, (item.duration || 0) * item.quantity);
       item.end_time = format(itemEndTime, 'HH:mm');
 
-      // Si es un combo, calcular tiempos de sub-items y actualizar el itemEndTime del combo
+      // If it's a combo, calculate sub-item times
       if (item.type === 'combo' && item.items && item.items.length > 0) {
-        let comboTimelineEndTime = new Date(currentItemStartTime);
         for (const subItem of item.items) {
           if (subItem.type === 'service') {
-            // Assuming sub-items run sequentially within the combo for now
-            const subItemStartTime = addMinutes(comboTimelineEndTime, subItem.offset_minutes || 0);
+            // A sub-item's offset is relative to the PARENT combo's start time.
+            const subItemStartTime = addMinutes(currentItemStartTime, subItem.offset_minutes || 0);
             subItem.start_time = format(subItemStartTime, 'HH:mm');
             const subItemEndTime = addMinutes(subItemStartTime, subItem.duration || 0);
             subItem.end_time = format(subItemEndTime, 'HH:mm');
-            if (subItemEndTime > comboTimelineEndTime) {
-                comboTimelineEndTime = subItemEndTime;
-            }
           }
         }
-        itemEndTime = comboTimelineEndTime;
-        item.end_time = format(itemEndTime, 'HH:mm');
-      }
-
-      if (itemEndTime > timelineEndTime) {
-        timelineEndTime = itemEndTime;
       }
     }
 
@@ -412,36 +460,32 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
       return { totalDuration: 0, finalEndTime: '--:--' };
     }
 
-    let rawTotalDuration = 0;
-    let totalOffset = 0;
+    const allServiceEndTimes: Date[] = [];
 
     items.forEach(item => {
-      if (item.type === 'service') {
-        rawTotalDuration += (item.duration || 0) * item.quantity;
-        if (item.is_parallel) {
-          totalOffset += item.offset_minutes || 0;
-        }
-      } else if (item.type === 'combo') {
-        const comboDuration = item.items?.reduce((acc, subItem) => {
-          if (subItem.type === 'service') {
-            return acc + (subItem.duration || 0);
+      if (item.type === 'service' && item.end_time) {
+        const [h, m] = item.end_time.split(':').map(Number);
+        if (!isNaN(h)) allServiceEndTimes.push(setHours(setMinutes(new Date(attentionDateTime), m), h));
+      } else if (item.type === 'combo' && item.items) {
+        item.items.forEach(subItem => {
+          if (subItem.type === 'service' && subItem.end_time) {
+            const [h, m] = subItem.end_time.split(':').map(Number);
+            if (!isNaN(h)) allServiceEndTimes.push(setHours(setMinutes(new Date(attentionDateTime), m), h));
           }
-          return acc;
-        }, 0) || 0;
-        rawTotalDuration += comboDuration * item.quantity;
-
-        if (item.is_parallel) {
-          totalOffset += item.offset_minutes || 0;
-        }
+        });
       }
     });
 
-    const calculatedDuration = rawTotalDuration - totalOffset;
-    const finalEndTimeDate = addMinutes(attentionDateTime, calculatedDuration > 0 ? calculatedDuration : 0);
+    if (allServiceEndTimes.length === 0) {
+      return { totalDuration: 0, finalEndTime: '--:--' };
+    }
+
+    const latestEndTime = new Date(Math.max(...allServiceEndTimes.map(date => date.getTime())));
+    const duration = differenceInMinutes(latestEndTime, attentionDateTime);
 
     return {
-      totalDuration: calculatedDuration > 0 ? calculatedDuration : 0,
-      finalEndTime: format(finalEndTimeDate, 'h:mm a'),
+      totalDuration: duration > 0 ? duration : 0,
+      finalEndTime: format(latestEndTime, 'h:mm a'),
     };
   }, [items, attentionDateTime]);
 
@@ -463,6 +507,7 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
     const hasMissingUserInItems = items.some(item => {
       if (item.type === 'service' && !item.user_id) return true;
       if (item.type === 'combo') {
+        // Check sub-items within the combo
         return item.items?.some(subItem => subItem.type === 'service' && !subItem.user_id);
       }
       return false;
@@ -479,6 +524,8 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
       const payload = {
         p_attention_id: attention.id,
         p_branch_id: attention.branch_id,
+        p_total_amount: totalValue,
+        p_notes: notes, // <-- AÑADIR ESTA LÍNEA
         p_services_to_upsert: [],
         p_products_to_upsert: [],
         p_combos_to_upsert: [],
@@ -487,24 +534,11 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
         p_combo_ids_to_delete: deletedComboIds,
       };
 
-      const getComparableItem = (item: ItemForm | null) => {
-        if (!item) return null;
-        const { start_time, end_time, item_name, user_name, status_history, ...rest } = item;
-        if (rest.items) {
-          rest.items = rest.items.map(getComparableItem);
-        }
-        return rest;
-      };
-
       const initialItemsMap = new Map(initialItems.map(item => [item.id, item]));
 
       items.forEach(item => {
         const initialItem = initialItemsMap.get(item.id);
-        
-        const comparableItem = getComparableItem(item);
-        const comparableInitialItem = getComparableItem(initialItem);
-
-        const hasChanged = !item.is_existing || (initialItem && JSON.stringify(comparableItem) !== JSON.stringify(comparableInitialItem));
+        const hasChanged = !item.is_existing || (initialItem && JSON.stringify(item) !== JSON.stringify(initialItem));
 
         if (hasChanged) {
           switch (item.type) {
@@ -514,12 +548,13 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
                 service_id: item.item_id,
                 user_id: item.user_id,
                 price: item.price,
-                duration: item.duration,
+                duration_minutes: item.duration,
                 notes: item.notes,
                 status: item.status,
                 is_parallel: item.is_parallel,
                 offset_minutes: item.offset_minutes,
                 attention_combo_id: item.attention_combo_id,
+                client_treatment_session_id: item.client_treatment_session_id || null,
               });
               break;
             case 'product':
@@ -527,9 +562,10 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
                 id: item.is_existing ? item.id : undefined,
                 product_id: item.item_id,
                 quantity: item.quantity,
-                unit_price: item.price,
+                price: item.price,
                 user_id: item.commission_user_id || null,
                 attention_combo_id: item.attention_combo_id,
+                client_treatment_session_id: item.client_treatment_session_id || null,
               });
               break;
             case 'combo':
@@ -547,7 +583,7 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
                         service_id: subItem.item_id,
                         user_id: subItem.user_id,
                         price: 0,
-                        duration: subItem.duration,
+                        duration_minutes: subItem.duration,
                         notes: subItem.notes,
                         status: subItem.status,
                         is_parallel: subItem.is_parallel,
@@ -565,14 +601,16 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
         await updateAttentionItemsMutation.mutateAsync(payload);
         onFinished();
       } catch (error) {
-        console.error("Error updating attention:", error);
+        console.error("Error updating session:", error);
       } finally {
         setIsSubmitting(false);
       }
     } else {
+      // --- Lógica de Creación ---
       const servicesPayload: any[] = [];
       const productsPayload: any[] = [];
       const combosPayload: any[] = [];
+      const paymentsPayload: any[] = [];
 
       items.forEach(item => {
         switch (item.type) {
@@ -587,15 +625,24 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
               is_parallel: item.is_parallel,
               parallel_group_id: item.parallel_group_id,
               offset_minutes: item.offset_minutes,
-              notes: item.notes
+              notes: item.notes,
+              client_treatment_session_id: item.client_treatment_session_id || null
+            });
+            break;
+          case 'payment':
+            paymentsPayload.push({
+              price: item.price,
+              notes: item.item_name,
+              client_treatment_session_id: item.client_treatment_session_id || null
             });
             break;
           case 'product':
             productsPayload.push({
               product_id: item.item_id,
               quantity: item.quantity,
-              price: item.price,
-              user_id: item.commission_user_id || null
+              unit_price: item.price,
+              user_id: item.commission_user_id || null,
+              client_treatment_session_id: item.client_treatment_session_id || null
             });
             break;
           case 'combo':
@@ -642,6 +689,7 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
         p_services: servicesPayload,
         p_products: productsPayload,
         p_combos: combosPayload,
+        p_payments: paymentsPayload,
         p_tenant_id: tenantId,
       };
 
@@ -733,6 +781,88 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
                 <Button type="button" onClick={() => addItem('service')} size="sm" variant="outline" disabled={!clientId || !attentionTime}><Plus className="w-4 h-4 mr-2" />Servicio</Button>
                 <Button type="button" onClick={() => addItem('product')} size="sm" variant="outline" disabled={!clientId || !attentionTime}><Plus className="w-4 h-4 mr-2" />Producto</Button>
                 <Button type="button" onClick={() => addItem('combo')} size="sm" variant="outline" disabled={!clientId || !attentionTime}><Plus className="w-4 h-4 mr-2" />Combo</Button>
+                <AddProjectSessionDialog
+                  clientId={clientId}
+                  onSessionSelected={(selectedSession) => {
+                    const newItemsFromSession: ItemForm[] = [];
+                    // Map items from the selected session to ItemForm structure
+                    selectedSession.items?.forEach((item: any) => {
+                        let price = 0; // Price for project items is always 0
+                        let duration = 0;
+                        let itemName = 'Ítem desconocido';
+
+                        if (item.service_id && branchServicesAndCombos) {
+                            const serviceDetails = branchServicesAndCombos.find(s => s.id === item.service_id);
+                            if (serviceDetails) {
+                                duration = serviceDetails.duration_minutes || 0;
+                                itemName = serviceDetails.name;
+                            }
+                        } else if (item.product_id && branchProducts) {
+                            const productDetails = branchProducts.find(p => p.id === item.product_id);
+                            if (productDetails) {
+                                itemName = productDetails.name;
+                            }
+                        }
+
+                        newItemsFromSession.push({
+                            id: uuidv4(),
+                            type: item.product_id ? 'product' : 'service',
+                            item_id: item.product_id || item.service_id,
+                            item_name: itemName,
+                            quantity: item.quantity,
+                            price: 0, // Per user request, individual price is 0
+                            original_price: 0,
+                            duration: duration, // Correctly looked up duration
+                            notes: item.notes,
+                            is_existing: false,
+                            status: 'Pendiente',
+                            user_id: '',
+                            start_time: '',
+                            end_time: '',
+                            is_parallel: false,
+                            parallel_group_id: null,
+                            offset_minutes: 0,
+                            is_project_session_item: true,
+                            client_treatment_session_id: selectedSession.id,
+                            client_project_id: selectedSession.client_project_id,
+                        });
+                    });
+
+                    // Add a 'payment' item if there's an amount due for this session
+                    if (selectedSession.payment_due && selectedSession.payment_due.amount > 0) {
+                        newItemsFromSession.push({
+                            id: uuidv4(),
+                            type: 'payment',
+                            item_id: 'project-payment', // Special ID for payment type
+                            item_name: `Pago de Proyecto (Sesión ${selectedSession.session_number})`,
+                            quantity: 1,
+                            price: selectedSession.payment_due.amount,
+                            is_existing: false,
+                            status: 'Pendiente',
+                            user_id: '',
+                            start_time: '',
+                            end_time: '',
+                            is_parallel: false,
+                            parallel_group_id: null,
+                            offset_minutes: 0,
+                            is_project_session_item: true,
+                            client_treatment_session_id: selectedSession.id,
+                            client_project_id: selectedSession.client_project_id,
+                        });
+                    }
+
+                    setItems(prevItems => [...prevItems, ...newItemsFromSession]);
+                    toast({
+                      title: "Sesión de Proyecto Añadida",
+                      description: `Items de la sesión ${selectedSession.session_number} (${selectedSession.name}) agregados a la sesión.`,
+                      variant: "success",
+                    });
+                  }}
+                >
+                  <Button type="button" size="sm" variant="outline" disabled={!clientId || !attentionTime || isLoadingClientProjects || !clientProjects || clientProjects.length === 0}>
+                    <Plus className="w-4 h-4 mr-2" />Proyecto
+                  </Button>
+                </AddProjectSessionDialog>
               </div>
             )}
           </div>
@@ -754,13 +884,12 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
                   isAttentionEditable={isAttentionEditable}
                   tenantId={tenantId}
                   screenSize={screenSize}
-                  attentionId={attention?.id} 
-                  attention={attention}
+                  clientId={clientId}
+                  attention={attention} // Pass attention object
+                  attentionId={attention?.id || ''} // Pass attentionId
                   salesSettings={salesSettings}
                   userRole={userRole}
                   isLoadingSalesSettings={isLoadingSalesSettings}
-                  onOpenSignConsentDialog={onOpenSignConsentDialog}
-                  clientId={clientId}
               />
           ))}
           </div>
@@ -823,7 +952,25 @@ export const AttentionForm = ({ branchId, onFinished, initialDate, attention = n
       </div>
       <DialogFooter className="fixed bottom-0 right-0 w-full bg-background pt-4 pb-4 pr-6">
         <Button type="button" variant="outline" onClick={onFinished}>Cancelar</Button>
-        <Button type="submit" form="attention-form" disabled={isSubmitting || createAttentionMutation.isPending || updateAttentionItemsMutation.isPending || !clientId || !attentionDateTime || items.length === 0}>
+        
+        {isEditMode && attention?.status === 'Pendiente' && (
+            <Button
+                type="button"
+                onClick={() => {
+                    confirmAttentionMutation.mutate(attention.id, {
+                        onSuccess: () => {
+                            onFinished(); // Cierra el formulario para forzar la recarga de datos al reabrir
+                        }
+                    });
+                }}
+                disabled={confirmAttentionMutation.isPending}
+                variant="default"
+            >
+                {confirmAttentionMutation.isPending ? 'Confirmando...' : 'Confirmar Sesión'}
+            </Button>
+        )}
+
+        <Button type="submit" form="attention-form" disabled={isSubmitting || createAttentionMutation.isPending || updateAttentionItemsMutation.isPending || confirmAttentionMutation.isPending || !clientId || !attentionDateTime || items.length === 0}>
           {isEditMode ? 'Guardar Cambios' : 'Crear Sesión'}
         </Button>
       </DialogFooter>

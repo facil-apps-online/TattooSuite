@@ -1,12 +1,12 @@
-
 import { useMemo, useEffect, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Link, Trash2, UploadCloud, Clock, Plus, Loader2, Star } from "lucide-react";
+import { Link, Trash2, UploadCloud, Clock, Plus, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { FilterableSelect } from "./FilterableSelect";
@@ -14,7 +14,7 @@ import { useProductSellers } from "@/hooks/useProductSellers";
 import { useGetComboBranchDetails } from "@/hooks/useCombos";
 import { useAvailableUsers } from "@/hooks/useAvailableUsers";
 import { usePriceFormat } from "@/hooks/usePriceFormat";
-import { format, setHours, setMinutes } from "date-fns";
+import { format, setHours, setMinutes, addMinutes } from "date-fns";
 import { useStartService, useFinishService, useCallClient } from "@/hooks/useAttentionServiceActions";
 import { ServiceTimer } from "./ServiceTimer";
 import { EvidenceUploadDialog } from "./EvidenceUpload";
@@ -39,6 +39,7 @@ const ComboSubItemCard = ({ subItem, subIndex, attentionDateTime, branchId, isAt
   const [professionalSearchTerm, setProfessionalSearchTerm] = useState("");
   const debouncedSetProfessionalSearchTerm = useMemo(() => debounce(setProfessionalSearchTerm, 300), []);
 
+  // Hook para profesionales de servicios
   const { data: availableUsers, isLoading: isLoadingAvailableUsers } = useAvailableUsers(
     subItem.type === 'service' ? subItem.item_id : undefined,
     'service',
@@ -52,6 +53,7 @@ const ComboSubItemCard = ({ subItem, subIndex, attentionDateTime, branchId, isAt
     clientId
   );
 
+  // Hook para vendedores de productos
   const { data: productSellers, isLoading: isLoadingProductSellers } = useProductSellers(
     subItem.type === 'product' ? subItem.item_id : undefined,
     branchId
@@ -63,7 +65,7 @@ const ComboSubItemCard = ({ subItem, subIndex, attentionDateTime, branchId, isAt
       value: user.user_id,
       label: (
         <div className="flex items-center gap-2">
-          {`${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email}
+          {`${user.users?.name || `${user.first_name || ''} ${user.last_name || ''}`.trim()} - Comisión: ${user.commission_rate}%`}
           {user.is_favorite && <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />}
         </div>
       ),
@@ -120,18 +122,19 @@ const ComboSubItemCard = ({ subItem, subIndex, attentionDateTime, branchId, isAt
 
 export interface ItemForm {
   id: string;
-  type: 'service' | 'product' | 'combo';
-  item_id: string;
-  user_id: string;
-  commission_user_id?: string;
+  type: 'service' | 'product' | 'combo' | 'payment'; // 'payment' added
+  item_id: string; // ID del servicio, producto, combo o 'payment' para pagos de proyecto
+  user_id: string; // Profesional asignado (para servicios)
+  commission_user_id?: string; // Para productos, si es diferente del user_id del servicio
   price: number;
+  original_price?: number;
   duration?: number;
   quantity: number;
   notes?: string;
   item_name?: string;
   user_name?: string;
-  is_existing: boolean;
-  status?: string;
+  is_existing: boolean; // Si ya existe en la base de datos (modo edición)
+  status?: string; // Estado del item de atención
   status_history?: any[];
   start_time: string;
   end_time: string;
@@ -139,144 +142,303 @@ export interface ItemForm {
   parallel_group_id: string | null;
   offset_minutes: number;
   attention_combo_id?: string | null;
+
+  // Para combos, lista de sub-items (servicios/productos)
   items?: ItemForm[];
+
+  // Campos para ítems de sesión de proyecto
+  is_project_session_item?: boolean;
+  client_treatment_session_id?: string;
+  client_treatment_id?: string;
 }
 
 export interface ItemFormCardProps {
+
   item: ItemForm;
+
   index: number;
+
   attentionDateTime: Date | null;
+
   branchId?: string;
+
   onUpdate: (index: number, updates: Partial<ItemForm>) => void;
+
   onRemove: (index: number) => void;
+
   onSearchItems?: (searchTerm: string) => void;
+
   isLoadingItems?: boolean;
+
   canRemove: boolean;
+
   availableServicesAndCombos: any[];
+
   availableBranchProducts: any[];
+
   isAttentionEditable: boolean;
+
   tenantId?: string;
-  screenSize: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
-  attentionId?: string;
+
+  screenSize: 'mobile' | 'tablet' | 'desktop';
+
+  attentionId: string; // ADD THIS LINE
+
   attention: any;
-  salesSettings: any;
-  userRole?: string;
-  isLoadingSalesSettings: boolean;
-  onOpenSignConsentDialog: (consent: SignedConsent, attention: any) => void;
+
   clientId?: string;
-}
 
-const ItemFormCard = ({
-  item,
-  index,
-  attentionDateTime,
-  branchId,
-  onUpdate,
-  onRemove,
-  onSearchItems,
-  isLoadingItems,
-  canRemove,
-  availableServicesAndCombos,
-  availableBranchProducts,
-  isAttentionEditable,
-  attentionId,
-  attention,
-  salesSettings,
-  userRole,
-  isLoadingSalesSettings,
-  onOpenSignConsentDialog,
-  clientId,
-}: ItemFormCardProps) => {
-  const [evidenceDialogService, setEvidenceDialogService] = useState<ItemForm | null>(null);
-  const [professionalSearchTerm, setProfessionalSearchTerm] = useState("");
-  const debouncedSetProfessionalSearchTerm = useMemo(() => debounce(setProfessionalSearchTerm, 300), []);
-  const [sellerSearchTerm, setSellerSearchTerm] = useState("");
-  const debouncedSetSellerSearchTerm = useMemo(() => debounce(setSellerSearchTerm, 300), []);
-  const startServiceMutation = useStartService();
-  const finishServiceMutation = useFinishService();
-  const callClientMutation = useCallClient();
-  const [isAssignConsentDialogOpen, setIsAssignConsentDialogOpen] = useState(false);
+  salesSettings?: {
 
-  const getStatusBadge = (status: ItemForm['status']) => {
-    switch (status) {
-      case 'Pendiente':
-        return <Badge variant="secondary">Pendiente</Badge>;
-      case 'Llamado':
-        return <Badge variant="default" className="bg-yellow-500">Llamado</Badge>;
-      case 'En Proceso':
-        return <Badge variant="default" className="bg-blue-500">En Proceso</Badge>;
-      case 'Finalizado':
-        return <Badge variant="default" className="bg-green-500">Finalizado</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
+    allow_price_modification?: boolean;
+
+    price_modification_role_ids?: string[];
+
+    enforce_minimum_price?: boolean;
+
   };
 
+  userRole?: string;
+
+  isLoadingSalesSettings?: boolean;
+
+}
+
+
+
+const ItemFormCard = ({
+
+  item,
+
+  index,
+
+  attentionDateTime,
+
+  branchId,
+
+  onUpdate,
+
+  onRemove,
+
+  onSearchItems,
+
+  isLoadingItems,
+
+  canRemove,
+
+  availableServicesAndCombos,
+
+  availableBranchProducts,
+
+  isAttentionEditable,
+
+  attentionId, // ADD THIS LINE
+
+  attention,
+
+  clientId,
+
+  salesSettings,
+
+  userRole,
+
+  isLoadingSalesSettings,
+
+}: ItemFormCardProps) => {
+
+  const [evidenceDialogService, setEvidenceDialogService] = useState<ItemForm | null>(null);
+
+  const [professionalSearchTerm, setProfessionalSearchTerm] = useState("");
+
+  const debouncedSetProfessionalSearchTerm = useMemo(() => debounce(setProfessionalSearchTerm, 300), []);
+
+  const [sellerSearchTerm, setSellerSearchTerm] = useState("");
+
+  const debouncedSetSellerSearchTerm = useMemo(() => debounce(setSellerSearchTerm, 300), []);
+
+  const startServiceMutation = useStartService();
+
+  const finishServiceMutation = useFinishService();
+
+  const callClientMutation = useCallClient();
+
+  const [isAssignConsentDialogOpen, setIsAssignConsentDialogOpen] = useState(false); // State for consent dialog
+
+  const { toast } = useToast();
+
   const { formatPrice } = usePriceFormat();
-  const { data: comboDetails, isLoading: isLoadingComboDetails } = useGetComboBranchDetails(
-    (item.type === 'combo' && item.item_id && !item.is_existing) ? item.item_id : undefined,
-    branchId
-  );
 
-  const { data: productSellers, isLoading: isLoadingProductSellers } = useProductSellers(
-    item.type === 'product' ? item.item_id : undefined,
-    branchId,
-    sellerSearchTerm
-  );
+  const [originalPrice, setOriginalPrice] = useState<number | null>(null);
 
-  const totalItemDuration = useMemo(() => {
-    if (item.type !== 'combo') {
-      return (item.duration || 0) * item.quantity;
-    }
-    return item.duration || 0;
-  }, [item.type, item.duration, item.quantity]);
 
-  const { data: availableUsers, isLoading: isLoadingAvailableUsers } = useAvailableUsers(
-    item.type === 'service' ? item.item_id : undefined,
-    'service',
-    attentionDateTime ? format(attentionDateTime, 'yyyy-MM-dd') : '',
-    item.start_time || (attentionDateTime ? format(attentionDateTime, 'HH:mm') : undefined),
-    totalItemDuration,
-    branchId,
-    item.is_existing ? item.user_id : undefined,
-    item.is_existing ? item.id : undefined,
-    professionalSearchTerm,
-    clientId
-  );
+
+  // --- NEW: Specific rendering for 'payment' type ---
+
+  if (item.type === 'payment') {
+
+    return (
+
+      <Card className="relative mb-4 w-full bg-amber-50 border-amber-200">
+
+        <CardContent className="p-4 flex items-center justify-between">
+
+          <div>
+
+            <Label className="text-amber-800">Pago de Proyecto</Label>
+
+            <p className="font-semibold">{item.item_name}</p>
+
+          </div>
+
+          <div className="text-right">
+
+            <p className="font-semibold text-lg">{formatPrice(item.price)}</p>
+
+          </div>
+
+        </CardContent>
+
+      </Card>
+
+    );
+
+  }
+
+
 
   useEffect(() => {
-    if (item.type === 'combo' && !item.is_existing && comboDetails) {
-      const newItems = comboDetails.items.map((ci: any) => ({
-        id: `temp-${ci.item_id}`,
-        type: ci.service_id ? 'service' : 'product',
-        item_id: ci.service_id || ci.product_id,
-        item_name: ci.name,
-        quantity: ci.quantity,
-        price: ci.final_price, // final_price is the correct field from the view
-        duration: ci.duration_minutes,
-        is_existing: false,
-        status: 'Pendiente',
-        user_id: '',
-        start_time: '',
-        end_time: '',
-        is_parallel: false,
-        parallel_group_id: null,
-        offset_minutes: ci.offset_minutes || 0,
-      }));
 
-      const baseDuration = newItems
-        .filter(i => i.type === 'service')
-        .reduce((acc, comboItem) => acc + ((comboItem.duration || 0) * comboItem.quantity), 0);
-      
-      const basePrice = comboDetails.total_price;
+    if (item.item_id && originalPrice === null) {
 
-      onUpdate(index, {
-        duration: baseDuration,
-        price: basePrice,
-        items: newItems,
-      });
+      setOriginalPrice(item.price);
+
     }
-  }, [comboDetails, item.type, item.is_existing, index, onUpdate]);
+
+  }, [item.item_id, item.price, originalPrice]);
+
+
+
+  const isPriceEditable = useMemo(() => {
+
+    if (isLoadingSalesSettings || !salesSettings || !userRole) return false;
+
+    return (
+
+      salesSettings.allow_price_modification &&
+
+      (salesSettings.price_modification_role_ids || []).includes(userRole)
+
+    );
+
+  }, [salesSettings, userRole, isLoadingSalesSettings]);
+
+
+
+  const handlePriceChange = (newPrice: number) => {
+
+    if (salesSettings?.enforce_minimum_price && originalPrice !== null && newPrice < originalPrice) {
+
+      toast({
+
+        title: "Precio no válido",
+
+        description: `El precio no puede ser menor al original de ${formatPrice(originalPrice)}.`,
+
+        variant: "warning",
+
+      });
+
+      onUpdate(index, { price: originalPrice });
+
+    } else {
+
+      onUpdate(index, { price: newPrice });
+
+    }
+
+  };
+
+
+
+  const getStatusBadge = (status: ItemForm['status']) => {
+
+    switch (status) {
+
+      case 'Pendiente':
+
+        return <Badge variant="secondary">Pendiente</Badge>;
+
+      case 'Llamado':
+
+        return <Badge variant="default" className="bg-yellow-500">Llamado</Badge>;
+
+      case 'En Proceso':
+
+        return <Badge variant="default" className="bg-blue-500">En Proceso</Badge>;
+
+      case 'Finalizado':
+
+        return <Badge variant="default" className="bg-green-500">Finalizado</Badge>;
+
+      default:
+
+        return <Badge variant="outline">{status}</Badge>;
+
+    }
+
+  };
+
+
+
+  const { data: comboDetails, isLoading: isLoadingComboDetails } = useGetComboBranchDetails(
+
+    (item.type === 'combo' && item.item_id && !item.is_existing) ? item.item_id : undefined,
+
+    branchId
+
+  );
+
+
+
+  const { data: productSellers, isLoading: isLoadingProductSellers } = useProductSellers(
+
+    item.type === 'product' ? item.item_id : undefined,
+
+    branchId,
+
+    sellerSearchTerm
+
+  );
+
+
+
+  const totalItemDuration = (item.duration || 0) * item.quantity;
+
+
+
+  const { data: availableUsers, isLoading: isLoadingAvailableUsers } = useAvailableUsers(
+
+    item.type === 'service' ? item.item_id : undefined, // Only for individual services
+
+    'service',
+
+    attentionDateTime ? format(attentionDateTime, 'yyyy-MM-dd') : '',
+
+    item.start_time || (attentionDateTime ? format(attentionDateTime, 'HH:mm') : undefined),
+
+    totalItemDuration,
+
+    branchId,
+
+    item.is_existing ? item.user_id : undefined,
+
+    item.is_existing ? item.id : undefined,
+
+    professionalSearchTerm,
+
+    clientId
+
+  );
 
   const availableUsersOptions = useMemo(() => {
     if (!availableUsers) return [];
@@ -284,7 +446,7 @@ const ItemFormCard = ({
       value: user.user_id,
       label: (
         <div className="flex items-center gap-2">
-          {`${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email}
+          {`${user.users?.name || `${user.first_name || ''} ${user.last_name || ''}`.trim()} - Comisión: ${user.commission_rate}%`}
           {user.is_favorite && <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />}
         </div>
       ),
@@ -317,18 +479,22 @@ const ItemFormCard = ({
   const handleItemChange = (itemId: string) => {
     const selectedItem = [...availableBranchProducts, ...availableServicesAndCombos].find(i => i.id === itemId);
     if (selectedItem) {
+      const price = selectedItem.selling_price || 0;
+      setOriginalPrice(price);
       const updates: Partial<ItemForm> = {
         item_id: itemId,
         item_name: selectedItem.name,
-        price: selectedItem.selling_price || 0,
+        price: price,
+        original_price: price,
         quantity: 1,
         user_id: '',
       };
       if (selectedItem.type === 'service') {
         updates.duration = selectedItem.duration_minutes || 0;
       } else if (selectedItem.type === 'combo') {
-        updates.duration = 0; // Will be calculated by useEffect
-        updates.price = selectedItem.selling_price || 0; // Use combo's own price
+        updates.duration = 0;
+        updates.price = 0;
+        updates.original_price = 0;
       }
       onUpdate(index, updates);
     }
@@ -336,10 +502,6 @@ const ItemFormCard = ({
 
   const handleQuantityChange = (newQuantity: number) => {
     onUpdate(index, { quantity: Math.max(1, newQuantity) });
-  };
-
-  const handlePriceChange = (newPrice: number) => {
-    onUpdate(index, { price: Math.max(0, newPrice) });
   };
 
   const handleUpdateSubItem = useCallback((subIndex: number, updates: Partial<ItemForm>) => {
@@ -356,16 +518,6 @@ const ItemFormCard = ({
     if (item.type === 'service' || item.type === 'combo') return true;
     return false;
   }, [isAttentionEditable, item.type]);
-  
-  const canEditPrice = useMemo(() => {
-    if (item.type === 'combo') return false; // Never allow editing combo price directly
-    if (!isAttentionEditable) return false;
-    if (isLoadingSalesSettings) return false;
-    if (!salesSettings?.price_modification_allowed) return false;
-
-    const allowedRoles = salesSettings.allowed_roles || [];
-    return userRole && allowedRoles.includes(userRole);
-  }, [salesSettings, isLoadingSalesSettings, userRole, isAttentionEditable, item.type]);
 
   if (item.type === 'product') {
     const productSellersOptions = productSellers?.map((seller: any) => ({
@@ -394,7 +546,7 @@ const ItemFormCard = ({
                     options={itemOptions}
                     value={item.item_id}
                     onValueChange={handleItemChange}
-                    disabled={isItemDisabled || item.is_existing}
+                    disabled={isItemDisabled}
                     onSearch={onSearchItems}
                     searchPlaceholder="Buscar..."
                 />
@@ -421,11 +573,24 @@ const ItemFormCard = ({
                             className="w-full"
                         />
                     </div>
-                </div>
-                 <div className="p-2 bg-muted rounded-md text-sm text-right">
-                    <div>
-                        <span className="font-semibold">Total: </span>
-                        <span>{formatPrice(item.price * item.quantity)}</span>
+                    <div className="p-2 bg-muted rounded-md text-sm text-right flex flex-col justify-center">
+                        <div>
+                            <span className="font-semibold">Unitario: </span>
+                                                {isPriceEditable && item.type !== 'combo' ? (
+                                                  <Input
+                                                    type="number"
+                                                    value={item.price}
+                                                    onChange={(e) => handlePriceChange(parseFloat(e.target.value) || 0)}
+                                                    className="inline-block w-24 h-8 ml-2 text-right"
+                                                    disabled={!isAttentionEditable || !item.item_id}
+                                                  />
+                                                ) : (
+                                                  <span>{formatPrice(item.price * item.quantity)}</span>
+                                                )}                        </div>
+                        <div>
+                            <span className="font-semibold">Total: </span>
+                            <span>{formatPrice(item.price * item.quantity)}</span>
+                        </div>
                     </div>
                 </div>
             </CardContent>
@@ -454,7 +619,7 @@ const ItemFormCard = ({
               {/* Right Side: Action Buttons */}
               <div className="flex-shrink-0 flex items-center gap-1">
                 {canBeParallel && (
-                  <Button
+                  <Button 
                       type="button"
                       variant="outline" 
                       size="icon" 
@@ -491,22 +656,19 @@ const ItemFormCard = ({
 
             {item.type === 'service' && (
               <div>
-                  {item.is_existing ? (
-                      <div>
-                          <Label>Asignado A:</Label>
-                          <Input value={item.user_name || 'No asignado'} disabled />
-                      </div>
-                  ) : (
+                  <Label>Asignado A:</Label>
+                  {isAttentionEditable && item.status === 'Pendiente' ? (
                       <FilterableSelect
-                          label="Asignado A:"
                           placeholder="Asignar profesional"
                           options={availableUsersOptions}
                           value={item.user_id}
                           onValueChange={(value) => onUpdate(index, { user_id: value })}
-                          disabled={isItemDisabled || isLoadingAvailableUsers || !item.item_id}
+                          disabled={isLoadingAvailableUsers || !item.item_id}
                           searchPlaceholder={isLoadingAvailableUsers ? "Verificando..." : "Buscar profesional..."}
                           onSearch={debouncedSetProfessionalSearchTerm}
                       />
+                  ) : (
+                      <Input value={item.user_name || 'No asignado'} disabled />
                   )}
                   {!item.is_existing && !isLoadingAvailableUsers && availableUsers?.length === 0 && item.item_id && (
                       <p className="text-xs text-red-500 mt-1">No hay personal disponible.</p>
@@ -528,10 +690,6 @@ const ItemFormCard = ({
                     />
                 </div>
             )}
-             {item.type === 'service' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-              </div>
-             )}
 
             {item.type === 'combo' && (
               <div className="mt-4">
@@ -550,10 +708,7 @@ const ItemFormCard = ({
                 <div className="mt-4 pt-4 border-t">
                     <h4 className="text-sm font-semibold mb-2">Contenido del Combo:</h4>
                     {isLoadingComboDetails ? (
-                       <div className="flex items-center text-sm text-muted-foreground">
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Cargando detalles del combo...
-                        </div>
+                        <p className="text-sm text-muted-foreground">Cargando detalles del combo...</p>
                     ) : (
                         <div className="space-y-3">
                             {comboItemsToDisplay.map((comboItem, subIndex) => (
@@ -565,7 +720,7 @@ const ItemFormCard = ({
                                   branchId={branchId}
                                   isAttentionEditable={isAttentionEditable}
                                   onUpdate={handleUpdateSubItem}
-                                  clientId={clientId}
+                                  clientId={attention?.client_id}
                                 />
                             ))}
                         </div>
@@ -579,8 +734,18 @@ const ItemFormCard = ({
                     <span>{totalItemDuration} min</span>
                 </div>
                 <div>
-                    <span className="font-semibold">Valor Total: </span>
-                    <span>{formatPrice(item.price * item.quantity)}</span>
+                    <span className="font-semibold">Valor: </span>
+                    {isPriceEditable && item.type !== 'combo' ? (
+                      <Input
+                        type="number"
+                        value={item.price}
+                        onChange={(e) => handlePriceChange(parseFloat(e.target.value) || 0)}
+                        className="inline-block w-24 h-8 ml-2 text-right"
+                        disabled={!isAttentionEditable || !item.item_id}
+                      />
+                    ) : (
+                      <span>{formatPrice(item.price * item.quantity)}</span>
+                    )}
                 </div>
                 <div>
                     <span className="font-semibold">Inicia: </span>
@@ -630,12 +795,14 @@ const ItemFormCard = ({
                           <UploadCloud className="w-4 h-4 mr-2" />
                           Evidencia
                         </Button>
+                        {/* NEW: Asignar Consentimiento Button */}
                         <Button type="button" size="sm" variant="outline" onClick={() => setIsAssignConsentDialogOpen(true)}>
                           <Plus className="w-4 h-4 mr-2" />
                           Consentimiento
                         </Button>
                     </div>
-                    <SignedConsentsDisplay attentionId={attentionId} attentionServiceId={item.id} branchId={branchId} attention={attention} onOpenSignConsentDialog={onOpenSignConsentDialog} />
+                    {/* NEW: Display Signed Consents for this service */}
+                    <SignedConsentsDisplay attentionId={attentionId} attentionServiceId={item.id} branchId={branchId} attention={attention} />
                 </div>
             )}
 
@@ -648,11 +815,12 @@ const ItemFormCard = ({
       branchId={branchId || ''}
       onUploadComplete={() => setEvidenceDialogService(null)}
     />
+    {/* NEW: Assign Consent Dialog */}
     {item.type === 'service' && (
       <AssignConsentDialog
         open={isAssignConsentDialogOpen}
         onOpenChange={setIsAssignConsentDialogOpen}
-        attentionId={attentionId}
+        attentionId={attentionId} // Corrected prop name
         attentionServiceId={item.id}
       />
     )}
@@ -660,18 +828,20 @@ const ItemFormCard = ({
   );
 };
 
+// NEW: Sub-component to display signed consents
 interface SignedConsentsDisplayProps {
-  attentionId?: string;
+  attentionId: string;
   attentionServiceId: string;
   branchId?: string;
   attention: any;
-  onOpenSignConsentDialog: (consent: SignedConsent, attention: any) => void;
 }
 
-const SignedConsentsDisplay = ({ attentionId, attentionServiceId, branchId, attention, onOpenSignConsentDialog }: SignedConsentsDisplayProps) => {
+const SignedConsentsDisplay = ({ attentionId, attentionServiceId, branchId, attention }: SignedConsentsDisplayProps) => {
   const { data: signedConsents, isLoading: isLoadingSignedConsents } = useSignedConsentsForAttention(attentionId, attentionServiceId);
   const { mutate: deleteConsent, isPending: isDeleting } = useDeleteSignedConsent();
+  const { mutate: signConsent, isPending: isSigning } = useSignConsent();
   const { toast } = useToast();
+  const [selectedConsent, setSelectedConsent] = useState<SignedConsent | null>(null);
 
   const handleDelete = (consentId: string) => {
     deleteConsent(consentId, {
@@ -680,6 +850,26 @@ const SignedConsentsDisplay = ({ attentionId, attentionServiceId, branchId, atte
       },
       onError: (error) => {
         toast({ title: "Error", description: `No se pudo eliminar el consentimiento: ${error.message}`, variant: "destructive" });
+      },
+    });
+  };
+
+  const handleSignConsent = (signatureDataUrl: string, observations: string, formData: any, signedContent: string) => {
+    if (!selectedConsent || !branchId) return;
+    signConsent({
+      signedConsentId: selectedConsent.id,
+      signatureDataUrl,
+      observations,
+      branchId, // Pass branchId here
+      formData,
+      signedContent,
+    }, {
+      onSuccess: () => {
+        toast({ title: "Éxito", description: "Consentimiento firmado correctamente.", variant: "success" });
+        setSelectedConsent(null);
+      },
+      onError: (error) => {
+        toast({ title: "Error", description: `No se pudo firmar el consentimiento: ${error.message}`, variant: "destructive" });
       },
     });
   };
@@ -703,12 +893,9 @@ const SignedConsentsDisplay = ({ attentionId, attentionServiceId, branchId, atte
               {consent.signed_at ? (
                 <span className="text-green-600">Firmado</span>
               ) : (
-                <span
-                  className="text-orange-600 h-auto p-0 cursor-pointer underline"
-                  onClick={() => onOpenSignConsentDialog(consent, attention)}
-                >
+                <Button variant="link" className="text-orange-600 h-auto p-0" onClick={() => setSelectedConsent(consent)}>
                   Pendiente
-                </span>
+                </Button>
               )}
               {!consent.signed_at && (
                 <AlertDialog>
@@ -737,10 +924,16 @@ const SignedConsentsDisplay = ({ attentionId, attentionServiceId, branchId, atte
           </div>
         ))}
       </div>
-      {/* ViewConsentDialog is now rendered in the parent Attentions.tsx */}
+      <ViewConsentDialog
+        open={!!selectedConsent}
+        onOpenChange={(isOpen) => !isOpen && setSelectedConsent(null)}
+        signedConsent={selectedConsent}
+        onConfirm={handleSignConsent}
+        isSigning={isSigning}
+        attention={attention}
+      />
     </>
   );
 };
 
 export default ItemFormCard;
-

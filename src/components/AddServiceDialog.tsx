@@ -41,6 +41,7 @@ export const AddServiceDialog = ({ children, attentionId }: AddServiceDialogProp
       service_id: serviceId,
       user_id: userId,
       service_price: servicePrice,
+      duration_minutes: duration,
       notes: notes || undefined,
       tenant_id: currentAssignment.tenant_id,
       branch_id: selectedBranchId,

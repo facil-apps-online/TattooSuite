@@ -19,6 +19,7 @@ import { ProjectCategoryDialog } from "./ProjectCategoryDialog";
 
 // Schema definitions
 const sessionSchema = z.object({
+  id: z.string().uuid().optional(),
   session_number: z.number().int().min(1).optional(),
   name: z.string().min(3, "El nombre de la sesión es requerido."),
   description: z.string().optional(),
@@ -61,6 +62,7 @@ interface ProjectFormProps {
 export const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, isSaving, submitButtonText = "Crear Proyecto" }) => {
   const { data: categories, isLoading: isLoadingCategories } = useProjectCategories();
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [initialCategoryIds, setInitialCategoryIds] = useState<string[]>([]);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   
   const form = useForm<FormData>({
@@ -74,7 +76,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, isSav
     },
   });
   
-  const { control, register, handleSubmit, reset, setValue, formState: { errors } } = form;
+  const { control, register, handleSubmit, reset, setValue, formState: { errors, isDirty } } = form;
 
   const { fields: sessionFields, append: appendSession, remove: removeSession } = useFieldArray({
     control: control,
@@ -85,11 +87,11 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, isSav
 
   useEffect(() => {
     if (project?.categories) {
-      setSelectedCategoryIds(
-        project.categories
-          .map(c => c.treatment_categories?.id)
-          .filter((id): id is string => !!id)
-      );
+      const initialIds = project.categories
+        .map(c => c.id)
+        .filter((id): id is string => !!id);
+      setSelectedCategoryIds(initialIds);
+      setInitialCategoryIds(initialIds.sort());
     }
   }, [project]);
 
@@ -148,6 +150,8 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, isSav
   };
 
   const categoryOptions = categories?.map(c => ({ value: c.id, label: c.name })) || [];
+
+  const areCategoriesDirty = JSON.stringify(initialCategoryIds) !== JSON.stringify([...selectedCategoryIds].sort());
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -222,7 +226,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, isSav
         <Button type="button" variant="outline" onClick={() => appendSession({ name: `Sesión ${sessionFields.length + 1}`, description: "", items: [] })}><PlusCircle className="w-4 h-4 mr-2" /> Añadir Sesión</Button>
       </div>
       <div className="flex justify-end">
-        <Button type="submit" disabled={isSaving}>
+        <Button type="submit" disabled={(!isDirty && !areCategoriesDirty) || isSaving}>
             <Save className="w-4 h-4 mr-2" />
             {submitButtonText}
         </Button>

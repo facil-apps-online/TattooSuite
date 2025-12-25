@@ -127,7 +127,7 @@ const EditProjectPage = () => {
             </Tabs>
         </div>
         <div>
-          <ChatterBox resourceType="treatments" resourceId={project.id} tenantId={project.tenant_id} containerClassName="h-[calc(100vh-22rem)]" />
+          <ChatterBox resourceType="projects" resourceId={project.id} tenantId={project.tenant_id} containerClassName="h-[calc(100vh-22rem)]" />
         </div>
       </div>
     </div>

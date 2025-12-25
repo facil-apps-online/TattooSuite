@@ -79,7 +79,7 @@ export function AssignProjectDialog({ children, client, onSuccess }: AssignProje
   useEffect(() => {
     const formSchemaWithContext = z.object({
       project_id: z.string().uuid("Debes seleccionar un proyecto."),
-      name: z.string().min(1, "El nombre del tratamiento es requerido."),
+      name: z.string().min(1, "El nombre del proyecto es requerido."),
       payment_type: z.enum(['upfront', 'financed'], { required_error: "Debes seleccionar un tipo de precio." }),
       start_date: z.date({ required_error: "La fecha de venta es requerida." }),
       sessions: z.array(z.object({

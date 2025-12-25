@@ -48,7 +48,7 @@ export interface Project {
   sessions?: ProjectSession[];
   cover_image_url?: string;
   categories?: ProjectCategory[];
-  project_images?: ProjectImage[]; // Renamed from treatment_images
+  project_images?: ProjectImage[];
   created_at: string;
   tenant_id: string;
 }
@@ -62,17 +62,19 @@ export interface ClientProject {
     completed: number;
     total: number;
   };
+  has_scheduled_sessions: boolean;
 }
 
 export interface ClientProjectSession {
     id: string;
-    client_project_id: string;
+    client_treatment_id: string;
     session_number: number;
     name: string;
     description: string;
-    status: 'pending' | 'completed';
+    status: 'pending' | 'completed' | 'Cita Asignada' | 'Cancelada';
     completed_at: string | null;
     attention_id: string | null;
+    attention_datetime: string | null;
     payment_due: {
         amount: number | null;
         percentage: number | null;
@@ -88,7 +90,6 @@ export interface ClientProjectDetails extends ClientProject {
 
 // --- HOOKS ---
 
-// Hook to get all project templates
 export const useProjects = (tenantId: string, type: 'treatment' | 'project', categoryId?: string, showInactive?: boolean) => {
   return useQuery<Project[], Error>({
     queryKey: ['projects', tenantId, type, categoryId, showInactive],
@@ -100,7 +101,6 @@ export const useProjects = (tenantId: string, type: 'treatment' | 'project', cat
   });
 };
 
-// Hook to get client assigned projects
 export const useClientProjects = (clientId: string) => {
   return useQuery<ClientProject[], Error>({
     queryKey: ['client_projects', clientId],
@@ -112,36 +112,31 @@ export const useClientProjects = (clientId: string) => {
   });
 };
 
-// Hook to get details of a specific project
 export const useProjectDetails = (projectId: string) => {
   return useQuery<Project, Error>({
     queryKey: ['project_details', projectId],
     queryFn: async () => {
       const result = await fetchTenantAction('get_treatment_details', { treatment_id: projectId });
-      // The RPC returns an array with a single object. We need to return that object.
       return result.data?.[0] || null;
     },
     enabled: !!projectId,
   });
 };
 
-// Hook to get details of a specific client project
 export const useClientProjectDetails = (clientProjectId: string) => {
   return useQuery<ClientProjectDetails, Error>({
     queryKey: ['client_project_details', clientProjectId],
     queryFn: async () => {
       const result = await fetchTenantAction('get_client_treatment_details', { client_treatment_id: clientProjectId });
-      // The RPC returns an array with a single object. We need to return that object.
-      return result.data?.[0];
+      return result.data;
     },
     enabled: !!clientProjectId,
   });
 };
 
 
-// --- IMAGE HOOKS ---
+// --- IMAGE HOOKS (adapted for Projects) ---
 
-// Hook to get images for a specific project
 export const useProjectImages = (projectId: string) => {
   return useQuery<ProjectImage[], Error>({
     queryKey: ["projectImages", projectId],
@@ -153,13 +148,9 @@ export const useProjectImages = (projectId: string) => {
   });
 };
 
-// Hook to delete an image from a project
 export const useDeleteProjectImage = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { currentAssignment } = useAuth();
-  const tenantId = currentAssignment?.tenant_id;
-
   return useMutation<void, Error, { imageId: string; projectId: string }>({
     mutationFn: ({ imageId }) => fetchTenantAction("delete_treatment_image", { imageId }),
     onSuccess: (_, variables) => {
@@ -173,13 +164,9 @@ export const useDeleteProjectImage = () => {
   });
 };
 
-// Hook to set an image as the primary one for a project
 export const useSetPrimaryProjectImage = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { currentAssignment } = useAuth();
-  const tenantId = currentAssignment?.tenant_id;
-
   return useMutation<void, Error, { projectId: string; imageId: string }>({
     mutationFn: (variables) => fetchTenantAction("set_primary_treatment_image", { treatmentId: variables.projectId, imageId: variables.imageId }),
     onSuccess: (_, variables) => {
@@ -193,7 +180,6 @@ export const useSetPrimaryProjectImage = () => {
   });
 };
 
-// Hook to upload an image file and associate it with a project
 export const useUploadProjectImage = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -210,27 +196,20 @@ export const useUploadProjectImage = () => {
 
   return useMutation<any, Error, { projectId: string; file: File }>({
     mutationFn: async ({ projectId, file }) => {
-      if (!currentAssignment?.tenant_id) {
-        throw new Error("No se pudo determinar el tenant actual.");
-      }
-
+      if (!currentAssignment?.tenant_id) throw new Error("No se pudo determinar el tenant actual.");
       const fileBase64 = await convertFileToBase64(file);
-
-      const { data, error } = await supabase.functions.invoke("google-drive-upload", {
-        body: {
-          tenantId: currentAssignment.tenant_id,
-          fileBase64,
-          mimeType: file.type,
-          fileName: file.name,
-          uploadContext: "Treatments", // This still points to the same backend folder
-          contextId: projectId,
-        },
-      });
-
-      if (error) {
-        throw new Error(error.message);
+      const { data, error } = await supabase.from('treatment_images').insert({
+        tenant_id: currentAssignment.tenant_id,
+        treatment_id: projectId,
+        image_url: file.name, // Assuming image_url will be set by the google-drive-upload function
+        is_primary: false, // Default to false
+        sort_order: 0, // Default to 0
+      }).select().single();
+      if (error) throw new Error(error.message);
+      // Update the image_url with the actual URL from the google-drive-upload response
+      if (data && uploadResult.fileId) {
+        await supabase.from('treatment_images').update({ image_url: uploadResult.fileId }).eq('id', data.id);
       }
-
       return data;
     },
     onSuccess: (_, variables) => {
@@ -247,9 +226,6 @@ export const useUploadProjectImage = () => {
 export const useUpdateProjectImagesOrder = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { currentAssignment } = useAuth();
-  const tenantId = currentAssignment?.tenant_id;
-
   return useMutation<void, Error, { projectId: string; images_data: { id: string; sort_order: number }[] }>({
     mutationFn: (variables) => fetchTenantAction("update_treatment_images_order", { treatmentId: variables.projectId, images_data: variables.images_data }),
     onSuccess: (_, variables) => {
@@ -263,29 +239,15 @@ export const useUpdateProjectImagesOrder = () => {
   });
 };
 
-
 // --- MUTATIONS ---
 
-// Assign a project to a client (and its sessions)
 export const useAssignProjectToClient = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
     const { tenantId } = useAuth();
-
     return useMutation({
-        mutationFn: (payload: {
-            client_id: string;
-            treatment_id: string; // This is the prototype_id
-            name: string;
-            payment_type: 'upfront' | 'financed';
-            final_price: number;
-            start_date: string;
-            sessions: ProjectSession[];
-        }) => {
-            const fullPayload = {
-                ...payload,
-                tenant_id: tenantId,
-            };
+        mutationFn: (payload: { client_id: string; treatment_id: string; name: string; payment_type: 'upfront' | 'financed'; final_price: number; start_date: string; sessions: ProjectSession[]; }) => {
+            const fullPayload = { ...payload, tenant_id: tenantId };
             return fetchTenantAction('assign_treatment_to_client', fullPayload);
         },
         onSuccess: (_, variables) => {
@@ -298,15 +260,12 @@ export const useAssignProjectToClient = () => {
     });
 }
 
-// Create a new project
 export const useCreateProject = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { tenantId } = useAuth();
-
   return useMutation({
-    mutationFn: (projectData: Omit<Project, 'id' | 'created_at' | 'business_id'>) =>
-      fetchTenantAction('create_treatment', { ...projectData, tenant_id: tenantId }),
+    mutationFn: (projectData: Omit<Project, 'id' | 'created_at' | 'business_id'>) => fetchTenantAction('create_treatment', { ...projectData, tenant_id: tenantId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       toast({ title: "Proyecto Creado", description: "El nuevo proyecto ha sido creado.", variant: "success" });
@@ -317,15 +276,12 @@ export const useCreateProject = () => {
   });
 };
 
-// Update a project
 export const useUpdateProject = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { tenantId } = useAuth();
-
   return useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: Partial<Omit<Project, 'id' | 'created_at' | 'business_id'>> }) =>
-      fetchTenantAction('update_treatment', { treatment_id: id, tenant_id: tenantId, ...updates }),
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<Omit<Project, 'id' | 'created_at' | 'business_id'>> }) => fetchTenantAction('update_treatment', { treatment_id: id, tenant_id: tenantId, ...updates }),
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['project_details', variables.id] });
@@ -337,15 +293,12 @@ export const useUpdateProject = () => {
   });
 };
 
-// Delete a project
 export const useDeleteProject = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { tenantId } = useAuth();
-
   return useMutation({
-    mutationFn: (id: string) =>
-      fetchTenantAction('delete_treatment', { treatment_id: id, tenant_id: tenantId }),
+    mutationFn: (id: string) => fetchTenantAction('delete_treatment', { treatment_id: id, tenant_id: tenantId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       toast({ title: "Proyecto Eliminado", description: "El proyecto ha sido eliminado.", variant: "success" });
@@ -356,28 +309,58 @@ export const useDeleteProject = () => {
   });
 };
 
-// --- New Hook for Deleting a Client's Project ---
 export const useDeleteClientProject = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { tenantId } = useAuth();
-
   return useMutation({
-    mutationFn: ({ client_project_id, client_id }: { client_project_id: string; client_id: string; }) => {
+    mutationFn: ({ client_treatment_id, client_id }: { client_treatment_id: string; client_id: string; }) => {
         if (!tenantId) {
             throw new Error("Tenant ID not found");
         }
         return fetchTenantAction('delete_client_treatment', { 
-            p_client_treatment_id: client_project_id,
+            p_client_treatment_id: client_treatment_id,
             p_tenant_id: tenantId 
         });
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['client_projects', variables.client_id] });
+      queryClient.invalidateQueries({ queryKey: ['client_treatments', variables.client_id] });
       toast({ title: "Éxito", description: "El proyecto asignado ha sido eliminado.", variant: "success" });
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: `No se pudo eliminar el proyecto: ${error.message}`, variant: "destructive" });
+    },
+  });
+};
+
+export const useCancelProjectSession = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: (sessionId: string) => fetchTenantAction('cancel_treatment_session', { p_session_id: sessionId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['client_project_details'] });
+      queryClient.invalidateQueries({ queryKey: ['client_projects'] });
+      toast({ title: "Sesión Cancelada", description: "La sesión ha sido marcada como cancelada.", variant: "success" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: `No se pudo cancelar la sesión: ${error.message}`, variant: "destructive" });
+    },
+  });
+};
+
+export const useReactivateProjectSession = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: (sessionId: string) => fetchTenantAction('reactivate_treatment_session', { p_session_id: sessionId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['client_project_details'] });
+      queryClient.invalidateQueries({ queryKey: ['client_projects'] });
+      toast({ title: "Sesión Reactivada", description: "La sesión ahora está pendiente y puede ser asignada.", variant: "success" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: `No se pudo reactivar la sesión: ${error.message}`, variant: "destructive" });
     },
   });
 };

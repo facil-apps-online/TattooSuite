@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { usePriceFormat } from "@/hooks/usePriceFormat";
-import { DollarSign, User, Hash, Box, Scissors, Link, MoreHorizontal, UploadCloud, Star } from "lucide-react";
+import { DollarSign, User, Hash, Box, PenTool, Link, MoreHorizontal, UploadCloud, Star } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -101,7 +101,7 @@ export const AttentionItemCard = ({
   const isMobile = screenSize === 'sm' || screenSize === 'md';
 
   const iconMap = {
-    service: <Scissors className="w-4 h-4 text-muted-foreground" />,
+    service: <PenTool className="w-4 h-4 text-muted-foreground" />,
     product: <Box className="w-4 h-4 text-muted-foreground" />,
     combo: <Box className="w-4 h-4 text-muted-foreground" />,
   };

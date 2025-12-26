@@ -1,22 +1,27 @@
-
 import { StatsCard } from "@/components/StatsCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, DollarSign, Users, Clock, TrendingUp, Scissors } from "lucide-react";
+import { Calendar, DollarSign, Users, Clock, TrendingUp, PenTool } from "lucide-react";
 import { useDashboardStats, useTodayAttentions, useTopServices, usePendingCommissions, TodayAttention, TopService } from "@/hooks/useDashboardStats";
 import { usePriceFormat } from "@/hooks/usePriceFormat";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useMemo } from "react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, subMonths } from "date-fns";
 import { es } from "date-fns/locale";
 import { DashboardListItem } from "@/components/DashboardListItem";
 import { PageHeader } from "@/components/PageHeader";
+import { useNavigate, Link } from "react-router-dom"; // Import Link
+import { useAuth } from "@/contexts/AuthContext";
+import { MonthlyExpensesSummaryCard } from "@/components/expenses/MonthlyExpensesSummaryCard"; // Changed import
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: todayAttentions, isLoading: attentionsLoading } = useTodayAttentions();
   const { data: topServices, isLoading: servicesLoading } = useTopServices();
   const { data: pendingCommissions, isLoading: pendingCommissionsLoading } = usePendingCommissions();
   const { formatPrice } = usePriceFormat();
+  const { currentAssignment } = useAuth(); 
+
+  const isSuperAdmin = currentAssignment?.role_name === 'tenant_super_admin';
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -35,12 +40,13 @@ export default function Dashboard() {
     }
   };
 
-  // La lógica del gráfico de comparación mensual se ha movido a la función RPC
-  // por lo que ya no es necesario calcularla aquí.
-
   return (
     <div className="space-y-8">
-      <PageHeader title="Dashboard" subtitle="Resumen de actividad del estudio" />
+      <PageHeader 
+        title="Dashboard" 
+        subtitle="Resumen de actividad del estudio"
+      >
+      </PageHeader>
 
       {statsLoading ? (
         <div className="flex items-center justify-center h-64">
@@ -51,7 +57,7 @@ export default function Dashboard() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <StatsCard
               title="Ventas del Día"
               value={formatPrice(stats?.todayRevenue || 0)}
@@ -66,31 +72,32 @@ export default function Dashboard() {
               icon={TrendingUp}
               trend={(stats?.monthlyRevenueChange || 0) >= 0 ? "up" : "down"}
             />
-            <StatsCard
-              title="Atenciones de Hoy"
-              value={(stats?.todayAppointments || 0).toString()}
-              change={`${stats?.appointmentsChange?.toFixed(1) || 0}% vs ayer`}
-              icon={Calendar}
-              trend={(stats?.appointmentsChange || 0) >= 0 ? "up" : "down"}
-            />
-            <StatsCard
-              title="Artistas Activos"
-              value={(stats?.activeStylists || 0).toString()}
-              change="Disponibles hoy"
-              icon={Users}
-              trend="up"
-            />
-            <StatsCard
-              title="Comisiones Pendientes"
-              value={formatPrice(pendingCommissions || 0)}
-              change={pendingCommissionsLoading ? "Cargando..." : "Total pendiente"}
-              icon={DollarSign}
-              trend="up"
-            />
+                        <div className="lg:row-span-2 cursor-pointer" onClick={() => navigate("/app/expenses")}>
+                          <MonthlyExpensesSummaryCard />
+                        </div>            <Link to="/app/team" className="cursor-pointer">
+              <StatsCard
+                title="Artistas Activos"
+                value={(stats?.activeStylists || 0).toString()}
+                change="Disponibles hoy"
+                icon={Users}
+                trend="up"
+              />
+            </Link>
+            <Link to="/app/commissions" className="cursor-pointer">
+              <StatsCard
+                title="Comisiones Pendientes"
+                value={formatPrice(pendingCommissions || 0)}
+                change={pendingCommissionsLoading ? "Cargando..." : "Total pendiente"}
+                icon={DollarSign}
+                trend="up"
+              />
+            </Link>
+            {/* The 'Atenciones de Hoy' StatsCard is removed from this section to fit the new layout. 
+                It needs to be decided if it's placed elsewhere or its functionality is covered by the list below. */}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
+            <Card className="cursor-pointer" onClick={() => navigate("/app/sessions")}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-primary">
                   <Calendar className="w-5 h-5 text-blue-600" />
@@ -101,7 +108,7 @@ export default function Dashboard() {
                 {attentionsLoading ? (
                   <div className="text-center py-4">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-2 text-sm text-slate-600">Cargando sesiones...</p>
+                    <p className="mt-2 text-slate-600">Cargando sesiones...</p>
                   </div>
                 ) : todayAttentions?.length === 0 ? (
                   <div className="text-center py-8">
@@ -118,8 +125,12 @@ export default function Dashboard() {
                         subtitle={attention.client_name}
                         trailingContent={
                           <>
-                            <p className="text-sm font-medium truncate max-w-24">{attention.service_name}</p>
-                            <p className="text-xs text-slate-500 truncate max-w-24">{attention.stylist_name}</p>
+                            <p className="text-sm font-medium truncate max-w-24" title={attention.services?.map(s => s.name).join(', ')}>
+                              {attention.services?.map(s => s.name).join(', ') || 'N/A'}
+                            </p>
+                            <p className="text-xs text-slate-500 truncate max-w-24" title={attention.stylists?.map(s => s.name).join(', ')}>
+                              {attention.stylists?.map(s => s.name).join(', ') || 'N/A'}
+                            </p>
                             <p className="text-sm font-bold text-green-600 mt-1">
                               {formatPrice(attention.total_price)}
                             </p>
@@ -152,7 +163,7 @@ export default function Dashboard() {
                   </div>
                 ) : topServices?.length === 0 ? (
                   <div className="text-center py-8">
-                    <Scissors className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                    <PenTool className="w-12 h-12 text-slate-400 mx-auto mb-4" />
                     <p className="text-slate-500">No hay datos de servicios disponibles</p>
                   </div>
                 ) : (
@@ -171,6 +182,7 @@ export default function Dashboard() {
                             </p>
                           </>
                         }
+                        badge={null}
                       />
                     ))}
                   </div>

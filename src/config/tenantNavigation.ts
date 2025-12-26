@@ -3,7 +3,6 @@ import {
   Calendar,
   Combine,
   Package,
-  Scissors,
   Settings,
   UserCheck,
   Users,
@@ -17,6 +16,7 @@ import {
   Banknote,
   Building2,
   Repeat,
+  PenTool,
 } from 'lucide-react';
 
 export const tenantNavigationConfig = [
@@ -72,7 +72,7 @@ export const tenantNavigationConfig = [
       {
         title: "Servicios",
         url: "/app/services",
-        icon: Scissors,
+        icon: PenTool,
         roles: ['tenant_super_admin', 'tenant_admin']
       },
       {

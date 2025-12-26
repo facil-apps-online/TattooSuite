@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Scissors, DollarSign, Edit, Users, Share2, Search, MoreHorizontal, ListFilter, FileEdit, Trash2 } from "lucide-react";
+import { Plus, PenTool, DollarSign, Edit, Users, Share2, Search, MoreHorizontal, ListFilter, FileEdit, Trash2 } from "lucide-react";
 import { useMasterServices, useUpdateMasterService, useDeleteMasterService, MasterService } from "@/hooks/useServices";
 import { useServiceCategories } from "@/hooks/useServiceCategories";
 import { MasterServiceDialog } from "@/components/MasterServiceDialog";
@@ -223,7 +223,7 @@ export default function Services() {
     if (services?.length === 0) {
       return (
         <EmptyState
-          Icon={Scissors}
+          Icon={PenTool}
           title="No hay servicios"
           description={ allServices?.length === 0 ? "Crea tu primer servicio para empezar a gestionar tu negocio." : "No se encontraron servicios que coincidan con tu búsqueda." }
           action={ allServices?.length === 0 ? <MasterServiceDialog trigger={<Button>Crear Nuevo Servicio</Button>} /> : null }

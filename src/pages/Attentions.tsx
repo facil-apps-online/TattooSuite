@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Calendar, Clock, User, Scissors, Phone, DollarSign, LayoutList, CalendarDays, Trash2, Package, Edit, CheckCircle, CreditCard, Calendar as CalendarIcon, Receipt, Eye, Loader2, FileText, Link } from "lucide-react";
+import { Plus, Calendar, Clock, User, PenTool, Phone, DollarSign, LayoutList, CalendarDays, Trash2, Package, Edit, CheckCircle, CreditCard, Calendar as CalendarIcon, Receipt, Eye, Loader2, FileText, Link } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { callTenantAction } from '@/lib/tenantActions';
 import { TransactionReceiptDialog } from '@/components/TransactionReceiptDialog';
@@ -43,6 +43,7 @@ import { ViewFichaTecnicaDialog } from "@/components/ViewFichaTecnicaDialog";
 import { ViewConsentDialog } from "@/components/dialogs/ViewConsentDialog";
 import { useClientDocumentTemplates, useGetClientDocumentInstances, ClientDocumentTemplate, ClientDocumentInstance } from "@/hooks/useClientDocumentTemplates";
 import { FilePlus } from "lucide-react";
+import { useBranchSchedules, UserSchedule } from "@/hooks/useBranchSchedules"; // New Import
 
 
 const generateColorPalette = (count: number) => {
@@ -96,7 +97,6 @@ export default function Attentions() {
   const setDateFilter = useCallback((date: Date | undefined) => {
     _setDateFilter(date);
   }, []);
-  const [calendarView, setCalendarView] = useState('timeGridWeek');
   
   // State for Forms and Dialogs
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -133,14 +133,8 @@ export default function Attentions() {
     from.setHours(0, 0, 0, 0);
     const to = new Date(dateFilter);
     to.setHours(23, 59, 59, 999);
-    if (view === 'calendar' && calendarView === 'timeGridWeek') {
-      return {
-        from: startOfWeek(from, { weekStartsOn: 1 }),
-        to: endOfWeek(to, { weekStartsOn: 1 }),
-      };
-    }
     return { from, to };
-  }, [view, calendarView, dateFilter]);
+  }, [dateFilter]);
 
   const { data: attentions = [], isLoading, error } = useAttentions(
     selectedUser,
@@ -148,7 +142,9 @@ export default function Attentions() {
     dateRange
   );
 
-  const { data: users = [] } = useSchedulableUsers(selectedBranchId);
+  const { data: users = [] } = useSchedulableUsers(selectedBranchId, { onlySchedulable: true });
+  const { data: branchSchedules = [] } = useBranchSchedules(branchIdForDialog);
+
   const { data: timeOffs = [] } = useUserTimeOff(
     selectedUser !== 'all' ? selectedUser : undefined,
     'approved',
@@ -160,6 +156,53 @@ export default function Attentions() {
   );
   const { data: paymentMethods } = usePaymentMethods(tenantId);
 
+  const { minTime, maxTime } = useMemo(() => {
+    if (!dateFilter || branchSchedules.length === 0) {
+      // Default to a reasonable range if no schedules or date filter
+      return { minTime: '08:00:00', maxTime: '20:00:00' };
+    }
+
+    const currentDayOfWeek = (dateFilter.getDay() === 0 ? 7 : dateFilter.getDay()); // Monday=1, Sunday=7 for schedules
+
+    const activeDaySchedules = branchSchedules.filter(
+      (schedule) => schedule.day_of_week === currentDayOfWeek && schedule.is_active
+    );
+
+    if (activeDaySchedules.length === 0) {
+      return { minTime: '08:00:00', maxTime: '20:00:00' }; // Default if no active schedules for the day
+    }
+
+    let minHour = 24;
+    let minMinute = 60;
+    let maxHour = -1;
+    let maxMinute = -1;
+
+    activeDaySchedules.forEach(schedule => {
+      const [startHour, startMinute] = schedule.start_time.split(':').map(Number);
+      const [endHour, endMinute] = schedule.end_time.split(':').map(Number);
+
+      if (startHour < minHour || (startHour === minHour && startMinute < minMinute)) {
+        minHour = startHour;
+        minMinute = startMinute;
+      }
+      if (endHour > maxHour || (endHour === maxHour && endMinute > maxMinute)) {
+        maxHour = endHour;
+        maxMinute = endMinute;
+      }
+    });
+
+    const formatTime = (hour: number, minute: number) =>
+      `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
+
+    // Ensure minTime is always less than maxTime
+    if (minHour >= maxHour && minMinute >= maxMinute) {
+      // If all schedules are within a short period, ensure a minimum visible range
+      return { minTime: formatTime(minHour, minMinute), maxTime: formatTime(minHour + 4, minMinute) };
+    }
+
+    return { minTime: formatTime(minHour, minMinute), maxTime: formatTime(maxHour, maxMinute) };
+  }, [dateFilter, branchSchedules]);
+
   const userColorMap = useMemo(() => {
     const palette = generateColorPalette(users.length);
     const map = new Map<string, string>();
@@ -170,7 +213,9 @@ export default function Attentions() {
   }, [users]);
 
   const calendarEvents = useMemo(() => {
-    const groupedAttentions = attentions.reduce((acc, attention) => {
+    const filteredAttentions = attentions.filter(att => att.status !== 'Cancelada');
+
+    const groupedAttentions = filteredAttentions.reduce((acc, attention) => {
         if (!acc[attention.id]) {
             acc[attention.id] = {
                 ...attention,
@@ -596,16 +641,17 @@ export default function Attentions() {
         <TabsContent value="calendar" className="mt-4">
           <AttentionCalendarView 
             events={calendarEvents}
-            initialView={screenSize === 'mobile' ? 'timeGridDay' : calendarView}
+            initialView={'timeGridDay'}
             onDateSelect={handleDateSelect}
             onEventClick={handleEventClick}
             onDateChange={setDateFilter}
-            onViewChange={setCalendarView}
             currentDate={dateFilter}
             isLoading={isLoading}
             userColorMap={userColorMap}
             allUsers={users}
             screenSize={screenSize}
+            slotMinTime={minTime}
+            slotMaxTime={maxTime}
           />
         </TabsContent>
       </Tabs>
@@ -963,7 +1009,7 @@ const AttentionCard = ({ attention, formatPrice, onEdit, onOpenPaymentDialog, on
 
             {hasServices && (
                 <div className={`space-y-3 ${hasCombos ? 'pt-4 border-t' : ''}`}>
-                    <h4 className="font-medium flex items-center gap-2"><Scissors className="w-4 h-4" />Servicios</h4>
+                    <h4 className="font-medium flex items-center gap-2"><PenTool className="w-4 h-4" />Servicios</h4>
                     {standaloneServices.map((service, index) => {
                         return (
                             <AttentionItemCard

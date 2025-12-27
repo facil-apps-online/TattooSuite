@@ -15,11 +15,13 @@ import {
 import { Building2, Syringe, HardDrive } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranches } from "@/hooks/useBranches";
+import { Button } from "@/components/ui/button";
 import { useGoogleDriveImage } from "@/hooks/useGoogleDriveImage";
 import { useTenantStorageUsage } from "@/hooks/useTenantStorageUsage";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { StorageUsageChart } from "./StorageUsageChart";
-import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 // Helper function to format bytes
 const formatBytes = (bytes: number, decimals = 2) => {
@@ -51,6 +53,7 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 
 // --- COMPONENTE FOOTER ---
 const TenantInfoFooter: React.FC = () => {
+  const { open } = useSidebar();
   const { currentAssignment } = useAuth();
   const tenantId = currentAssignment?.tenant_id;
   const userRole = currentAssignment?.role_name;
@@ -59,9 +62,10 @@ const TenantInfoFooter: React.FC = () => {
   const { data: storageUsage, isLoading: isLoadingStorage } = useTenantStorageUsage(tenantId || '');
 
   const currentBranch = branches?.find(b => b.id === currentAssignment?.branch_id);
-
+  
+  const totalSize = storageUsage?.totalSize || 0;
   const usagePercentage = storageUsage && storageUsage.storageLimit > 0
-    ? (storageUsage.totalSize / storageUsage.storageLimit) * 100
+    ? (totalSize / storageUsage.storageLimit) * 100
     : 0;
 
   return (
@@ -85,34 +89,61 @@ const TenantInfoFooter: React.FC = () => {
 
           {/* Storage Usage (for all tenant roles) */}
           {!isLoadingStorage && storageUsage && (
-            <Sheet>
-              <SheetTrigger asChild>
-                <div 
-                  className="text-xs text-muted-foreground p-2 border rounded-md cursor-pointer hover:bg-accent"
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <HardDrive className="h-4 w-4" />
-                    <p className="font-semibold">Almacenamiento</p>
+            open ? (
+              <Sheet>
+                <SheetTrigger asChild>
+                  <div className="text-xs text-muted-foreground p-2 border rounded-md cursor-pointer hover:bg-accent">
+                    <div className="flex items-center gap-2 mb-1">
+                      <HardDrive className="h-4 w-4" />
+                      <p className="font-semibold">Almacenamiento</p>
+                    </div>
+                    <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary mb-1">
+                      <div 
+                        className="h-full w-full flex-1 bg-primary transition-all" 
+                        style={{ transform: `translateX(-${100 - (usagePercentage || 0)}%)` }}
+                      />
+                    </div>
+                    <p className="font-medium text-center">{formatBytes(totalSize)} / {formatBytes(storageUsage.storageLimit)}</p>
                   </div>
-                  <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary mb-1">
-                    <div 
-                      className="h-full w-full flex-1 bg-primary transition-all" 
-                      style={{ transform: `translateX(-${100 - (usagePercentage || 0)}%)` }}
-                    />
-                  </div>
-                  <p className="font-medium text-center">{formatBytes(storageUsage.totalSize)} / {formatBytes(storageUsage.storageLimit)}</p>
-                </div>
-              </SheetTrigger>
-              <SheetContent side="bottom" className="h-auto">
-                <SheetHeader>
-                  <SheetTitle>Desglose de Almacenamiento</SheetTitle>
-                  <SheetDescription>
-                    Uso de almacenamiento por tipo de archivo en el estudio.
-                  </SheetDescription>
-                </SheetHeader>
-                {storageUsage.breakdown && <StorageUsageChart data={storageUsage.breakdown} />}
-              </SheetContent>
-            </Sheet>
+                </SheetTrigger>
+                <SheetContent side="bottom" className="h-auto">
+                  <SheetHeader>
+                    <SheetTitle>Desglose de Almacenamiento</SheetTitle>
+                    <SheetDescription>
+                      Uso de almacenamiento para todas las sucursales.
+                    </SheetDescription>
+                  </SheetHeader>
+                  {storageUsage.breakdown && <StorageUsageChart data={storageUsage.breakdown} />}
+                </SheetContent>
+              </Sheet>
+            ) : (
+              <Sheet>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <SheetTrigger asChild>
+                        <Button variant="ghost" size="icon" className="p-2 border rounded-md h-auto w-auto">
+                          <HardDrive className="h-4 w-4" />
+                        </Button>
+                      </SheetTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">
+                      <p className="font-semibold">Almacenamiento</p>
+                      <p>{formatBytes(totalSize)} / {formatBytes(storageUsage.storageLimit)}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <SheetContent side="bottom" className="h-auto">
+                  <SheetHeader>
+                    <SheetTitle>Desglose de Almacenamiento</SheetTitle>
+                    <SheetDescription>
+                      Uso de almacenamiento para todas las sucursales.
+                    </SheetDescription>
+                  </SheetHeader>
+                  {storageUsage.breakdown && <StorageUsageChart data={storageUsage.breakdown} />}
+                </SheetContent>
+              </Sheet>
+            )
           )}
         </div>
       )}

@@ -57,7 +57,7 @@ export const ExportInformedConsentDialog: React.FC<ExportInformedConsentDialogPr
     try {
       // 1. Fetch images as Base64
       const logoProxyUrl = tenant.logo_url
-        ? `${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/proxy-google-drive-image?fileId=${tenant.logo_url}`
+        ? `${import.meta.env.VITE_CORE_SUPABASE_URL}/proxy-google-drive-image?fileId=${tenant.logo_url}`
         : '/glamtica.app.png';
       
       const logoDataUrl = await fetchImageAsDataURL(logoProxyUrl, session.access_token);

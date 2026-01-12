@@ -15,7 +15,7 @@ import { debounce } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/PageHeader";
 import { useNavigate } from "react-router-dom";
-import { ComboImageGallery } from "@/components/ComboImageGallery"; // Add this import
+import { ComboImageGallery } from "@/components/ComboImageGallery";
 
 interface ComboFormProps {
   combo?: Combo | null;

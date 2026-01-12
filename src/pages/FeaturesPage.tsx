@@ -179,7 +179,7 @@ const featuresData = {
         "Administra los números de secuencia para facturas y otros documentos.",
         "Gestiona los televisores registrados y las playlists de medios que se muestran en pantalla.",
         "Configura los detalles fiscales de tu negocio para la facturación.",
-        "Administra tu plan de suscripción a TattooSuite.app."
+        "Administra tu plan de suscripción a Tattoo Suite."
       ]
     },
     {
@@ -200,7 +200,7 @@ const FeaturesPage: React.FC = () => {
   return (
     <LegalPageLayout>
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-extrabold text-primary tracking-tight lg:text-5xl">Características de TattooSuite.app</h1>
+        <h1 className="text-4xl font-extrabold text-primary tracking-tight lg:text-5xl">Características de Tattoo Suite</h1>
         <p className="mt-4 text-lg text-muted-foreground max-w-3xl mx-auto">Un vistazo profundo a todas las herramientas que te ofrecemos para gestionar y hacer crecer tu estudio.</p>
       </div>
       

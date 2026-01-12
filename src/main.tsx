@@ -12,7 +12,7 @@ import { supabase } from '@/lib/supabaseClient'; // Import Supabase client
 const queryClient = new QueryClient();
 
 // Supabase client for error reporting
-const tattoosuitePlatformId = import.meta.env.VITE_TATTOOSUITE_PLATFORM_ID;
+const tattoosuitePlatformId = import.meta.env.VITE_PLATFORM_ID;
 
 // Function to report errors to Supabase Edge Function
 const reportError = async (error: Error, info?: React.ErrorInfo) => {
@@ -26,7 +26,7 @@ const reportError = async (error: Error, info?: React.ErrorInfo) => {
       stack: error.stack,
       componentStack: info?.componentStack,
       userAgent: navigator.userAgent,
-      appVersion: 'TattooSuite.app', // Or get from package.json
+      appVersion: 'Tattoo Suite', // Or get from package.json
       timestamp: new Date().toISOString(),
     },
   };

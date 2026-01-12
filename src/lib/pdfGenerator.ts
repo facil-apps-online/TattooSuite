@@ -28,7 +28,7 @@ export const generatePayslipPDF = async (payslipDetails: any, token: string, for
 
   // Fetch logo
   const logoUrl = payslipDetails.tenant?.logo_url 
-    ? `${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/proxy-google-drive-image?fileId=${payslipDetails.tenant.logo_url}`
+    ? `${import.meta.env.VITE_CORE_SUPABASE_URL}/proxy-google-drive-image?fileId=${payslipDetails.tenant.logo_url}`
     : '/glamtica.app.png';
   const logoDataUrl = await fetchImageAsDataURL(logoUrl, token);
 
@@ -123,7 +123,7 @@ export const generatePayslipPDF = async (payslipDetails: any, token: string, for
 
   // Add signature
   if (payslipDetails.signature?.google_drive_file_id) {
-    const signatureUrl = `${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/proxy-google-drive-image?fileId=${payslipDetails.signature.google_drive_file_id}`;
+    const signatureUrl = `${import.meta.env.VITE_CORE_SUPABASE_URL}/proxy-google-drive-image?fileId=${payslipDetails.signature.google_drive_file_id}`;
     const signatureDataUrl = await fetchImageAsDataURL(signatureUrl, token);
     if (signatureDataUrl) {
       doc.setFontSize(10);

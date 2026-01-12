@@ -7,33 +7,43 @@ export interface TenantSettingsData {
 }
 
 // GET tenant-specific settings
-const fetchTenantSettings = async (supabaseClient: any, tenantId: string): Promise<TenantSettingsData> => {
-  console.log('fetchTenantSettings: Attempting to fetch for tenantId:', tenantId);
-  const { data, error } = await supabaseClient
-    .from('tenants')
-    .select('logo_url')
-    .eq('id', tenantId)
-    .single();
+const fetchTenantSettings = async (tenantId: string, platformId: string): Promise<TenantSettingsData> => {
+  console.log('fetchTenantSettings: Attempting to fetch via tenant-actions for tenantId:', tenantId, 'platformId:', platformId);
+  const response = await fetch('/functions/v1/tenant-actions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+    },
+    body: JSON.stringify({
+      action: 'get-tenant-details',
+      payload: { tenantId, platformId },
+    }),
+  });
+
+  const { data, error } = await response.json();
 
   if (error) {
-    console.log('fetchTenantSettings: Error fetching for tenantId:', tenantId, 'Error:', error);
-    if (error.code === 'PGRST116') return {}; 
+    console.log('fetchTenantSettings: Error fetching via tenant-actions for tenantId:', tenantId, 'platformId:', platformId, 'Error:', error);
     throw new Error(error.message);
   }
-  console.log('fetchTenantSettings: Successfully fetched for tenantId:', tenantId, 'Data:', data);
-  return data;
+  
+  console.log('fetchTenantSettings: Successfully fetched via tenant-actions for tenantId:', tenantId, 'platformId:', platformId, 'Data:', data);
+  // Corrected extraction: data.tenant because get-tenant-details returns an object with tenant and other details.
+  return { logo_url: data.tenant.logo_url };
 };
 
 export const useTenantSettings = () => {
-  const { tenantId, supabaseClient } = useAuth();
+  const { tenantId, currentAssignment } = useAuth(); // Get currentAssignment
+  const platformId = currentAssignment?.platform_id; // Get platformId
 
   const queryResult = useQuery<TenantSettingsData, Error>({
-    queryKey: ['tenant_settings', tenantId],
+    queryKey: ['tenant_settings', tenantId, platformId], // Add platformId to queryKey
     queryFn: () => {
-      if (!tenantId) throw new Error("Tenant ID is required to fetch tenant settings.");
-      return fetchTenantSettings(supabaseClient, tenantId);
+      if (!tenantId || !platformId) throw new Error("Tenant ID or Platform ID is required to fetch tenant settings."); // Add platformId check
+      return fetchTenantSettings(tenantId, platformId);
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && !!platformId, // Enable only if tenantId and platformId are available
   });
 
   console.log('useTenantSettings: queryResult data:', queryResult.data, 'isLoading:', queryResult.isLoading, 'isFetching:', queryResult.isFetching);
@@ -43,28 +53,38 @@ export const useTenantSettings = () => {
 // UPDATE tenant-specific settings
 export const useUpdateTenantSettings = () => {
   const queryClient = useQueryClient();
-  const { tenantId } = useAuth();
+  const { tenantId, currentAssignment } = useAuth(); // Get currentAssignment
+  const platformId = currentAssignment?.platform_id; // Get platformId
 
   return useMutation<any, Error, Partial<TenantSettingsData>>({
     mutationFn: async (settings) => {
-      if (!tenantId) throw new Error("Tenant ID is required to update tenant settings.");
+      if (!tenantId || !platformId) throw new Error("Tenant ID or Platform ID is required to update tenant settings."); // Add platformId check
       
-      const { data: invokeData, error: invokeError } = await supabase.functions.invoke('tenant-actions', {
-        body: {
+      console.log("useUpdateTenantSettings: mutationFn called with settings:", settings);
+
+      const response = await fetch('/functions/v1/tenant-actions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+        body: JSON.stringify({
           action: 'update_tenant',
-          payload: { id: tenantId, values: settings }
-        }
+          payload: { id: tenantId, platformId, values: settings } // Pass platformId
+        }),
       });
 
-      if (invokeError) throw invokeError;
-      if (!invokeData.success) throw new Error(invokeData.message || 'Failed to update tenant settings.');
+      const invokeData = await response.json();
+      if (!response.ok) {
+        throw new Error(invokeData.message || 'Failed to update tenant settings.');
+      }
 
       // If an old logo was replaced, delete it from Google Drive
-      if (invokeData.oldLogoFileId) {
-        console.log(`Deleting old logo file: ${invokeData.oldLogoFileId}`);
+      if (invokeData.deletedFileId) { // Changed oldLogoFileId to deletedFileId
+        console.log(`Deleting old logo file: ${invokeData.deletedFileId}`);
         const { error: deleteError } = await supabase.functions.invoke('google-drive-delete', {
           body: { 
-            fileId: invokeData.oldLogoFileId, 
+            fileId: invokeData.deletedFileId, 
             tenantId: tenantId,
           }
         });
@@ -76,8 +96,8 @@ export const useUpdateTenantSettings = () => {
       return invokeData;
     },
     onSuccess: () => {
-      console.log('useUpdateTenantSettings: Invalidate queries for tenantId:', tenantId);
-      queryClient.invalidateQueries({ queryKey: ['tenant_settings', tenantId] });
+      console.log('useUpdateTenantSettings: Invalidate queries for tenantId:', tenantId, 'platformId:', platformId); // Add platformId
+      queryClient.invalidateQueries({ queryKey: ['tenant_settings', tenantId, platformId] }); // Add platformId
     },
   });
 };

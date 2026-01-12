@@ -893,7 +893,7 @@ const SignedConsentsDisplay = ({ attentionId, attentionServiceId, branchId, atte
               {consent.signed_at ? (
                 <span className="text-green-600">Firmado</span>
               ) : (
-                <Button variant="link" className="text-orange-600 h-auto p-0" onClick={() => setSelectedConsent(consent)}>
+                <Button type="button" variant="link" className="text-orange-600 h-auto p-0" onClick={() => setSelectedConsent(consent)}>
                   Pendiente
                 </Button>
               )}

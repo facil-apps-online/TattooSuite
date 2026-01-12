@@ -51,7 +51,7 @@ const FeatureCard = ({ icon, title, description }) => (
 
 export default function LandingPage() {
   const [selectedCountryId, setSelectedCountryId] = useState('');
-  const platformId = import.meta.env.VITE_TATTOOSUITE_PLATFORM_ID; // Get platform ID from environment
+  const platformId = import.meta.env.VITE_PLATFORM_ID; // Get platform ID from environment
   const { data: publicData, isLoading: isLoadingCountries } = usePublicRegistrationData(platformId);
   const { data: plans, isLoading: isLoadingPlans } = usePublicSubscriptionPlans(selectedCountryId, platformId);
 
@@ -100,7 +100,7 @@ export default function LandingPage() {
       {/* Header */}
       <header className="w-full bg-background shadow-sm p-4 flex justify-between items-center">
         <div className="flex items-center">
-          <span className="text-2xl font-bold text-primary">TattooSuite.app</span>
+          <span className="text-2xl font-bold text-primary">Tattoo Suite</span>
         </div>
         <nav className="flex items-center space-x-2 text-sm md:space-x-4 md:text-base">
           {/* Desktop/Tablet Navigation */}
@@ -131,8 +131,8 @@ export default function LandingPage() {
       <section className="relative bg-dark-container text-foreground py-20 px-4 text-center overflow-hidden">
         <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/diagmonds.png")' }}></div>
         <div className="relative z-10 max-w-4xl mx-auto">
-          <img src="/tattoosuite.app.png" alt="TattooSuite.app Logo" className="w-32 h-32 mx-auto mb-4" />
-          <h1 className="text-5xl font-extrabold mb-6 leading-tight">Gestiona tu Estudio de Tatuajes con <span className="text-accent">TattooSuite.app</span></h1>
+          <img src="/tattoosuite.app.png" alt="Tattoo Suite Logo" className="w-32 h-32 mx-auto mb-4" />
+          <h1 className="text-5xl font-extrabold mb-6 leading-tight">Gestiona tu Estudio de Tatuajes con <span className="text-accent">Tattoo Suite</span></h1>
           <p className="text-xl mb-8 opacity-90">La plataforma todo en uno diseñada para estudios de tatuajes. Simplifica tu administración, deleita a tus clientes y haz crecer tu estudio.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4">
             <Link to="/register-tenant">
@@ -292,7 +292,7 @@ export default function LandingPage() {
       <section className="bg-primary text-primary-foreground py-20 px-4 text-center">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-4xl font-bold mb-6">¿Listo para Transformar tu Estudio?</h2>
-          <p className="text-xl mb-8 opacity-90">Únete a cientos de estudios que ya están optimizando su gestión con TattooSuite.app.</p>
+          <p className="text-xl mb-8 opacity-90">Únete a cientos de estudios que ya están optimizando su gestión con Tattoo Suite.</p>
           <Link to="/register-tenant">
             <Button size="lg" className="bg-industrial-black hover:bg-industrial-black/90 text-white font-bold text-lg px-10 py-4 rounded-full shadow-lg" onClick={() => trackGtagEvent('register_click', { event_category: 'engagement', event_label: 'Footer Register' })}>Regístrate Ahora</Button>
           </Link>
@@ -302,7 +302,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="bg-dark-container text-muted-foreground py-8 px-4 text-center text-sm">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-          <p>&copy; {new Date().getFullYear()} TattooSuite.app. Todos los derechos reservados.</p>
+          <p>&copy; {new Date().getFullYear()} Tattoo Suite. Todos los derechos reservados.</p>
           <nav className="space-x-4">
             <Link to="/privacy-policy" className="hover:text-foreground">Política de Privacidad</Link>
             <Link to="/terms-of-service" className="hover:text-foreground">Términos de Servicio</Link>

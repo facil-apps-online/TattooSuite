@@ -106,6 +106,7 @@ export const useUploadEvidence = () => {
 
 // Function to get the proxied Google Drive image URL
 export const getEvidenceUrl = (googleDriveFile_fileId: string) => {
-  const functionUrl = `${supabase.functions.getURL('proxy-google-drive-image')}?fileId=${googleDriveFile_fileId}`;
+  // Assuming VITE_CORE_SUPABASE_URL is available in the environment
+  const functionUrl = `${import.meta.env.VITE_CORE_SUPABASE_URL}/proxy-google-drive-image?fileId=${googleDriveFile_fileId}`;
   return functionUrl;
 };

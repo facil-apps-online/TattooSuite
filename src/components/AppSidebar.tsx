@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBranches } from "@/hooks/useBranches";
 import { Button } from "@/components/ui/button";
 import { useGoogleDriveImage } from "@/hooks/useGoogleDriveImage";
+import { Skeleton } from "./ui/skeleton";
 import { useTenantStorageUsage } from "@/hooks/useTenantStorageUsage";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { StorageUsageChart } from "./StorageUsageChart";
@@ -152,12 +153,14 @@ const TenantInfoFooter: React.FC = () => {
 };
 
 // --- COMPONENTE PRINCIPAL ---
-export function AppSidebar({ menuConfig, homeUrl = "/", title = "TattooSuite.app", subtitle = "Panel", ...props }: AppSidebarProps) {
+export function AppSidebar({ menuConfig, homeUrl = "/", title = "Tattoo Suite", subtitle = "Panel", ...props }: AppSidebarProps) {
   const { setOpenMobile } = useSidebar();
   const { tenant, currentAssignment } = useAuth();
   const userRole = currentAssignment?.role_name;
 
-  const { displayUrl: tenantLogoUrl } = useGoogleDriveImage(tenant?.logo_url);
+  console.log('[AppSidebar] Tenant object from useAuth:', tenant);
+
+  const { displayUrl: tenantLogoUrl, isLoading: isLogoLoading } = useGoogleDriveImage(tenant?.tenant?.logo_url);
 
   const handleLinkClick = () => {
     setOpenMobile(false);
@@ -170,7 +173,9 @@ export function AppSidebar({ menuConfig, homeUrl = "/", title = "TattooSuite.app
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link to={homeUrl} onClick={handleLinkClick}>
-                {tenantLogoUrl ? (
+                {isLogoLoading ? (
+                  <Skeleton className="aspect-square size-8 rounded-lg" />
+                ) : tenantLogoUrl ? (
                   <img 
                     src={tenantLogoUrl} 
                     alt="Logo del Tenant" 

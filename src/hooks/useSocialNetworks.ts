@@ -40,11 +40,12 @@ export interface BranchSocialNetwork extends BaseSocialNetwork {
 export const useTenantSocialNetworks = (tenantIdParam?: string) => {
   const { session, currentAssignment } = useAuth();
   const tenantId = tenantIdParam || currentAssignment?.tenant_id;
+  const platformId = currentAssignment?.platform_id; // Get platformId
 
   return useQuery<TenantSocialNetwork[], Error>({
-    queryKey: ['tenantSocialNetworks', tenantId],
+    queryKey: ['tenantSocialNetworks', tenantId, platformId], // Add platformId
     queryFn: async () => {
-      if (!tenantId) return [];
+      if (!tenantId || !platformId) return []; // Add platformId check
       if (!session) throw new Error("Session not available.");
 
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/tenant-actions`, {
@@ -55,7 +56,7 @@ export const useTenantSocialNetworks = (tenantIdParam?: string) => {
         },
         body: JSON.stringify({
           action: 'list_tenant_social_networks',
-          payload: { p_tenant_id: tenantId },
+          payload: { p_tenant_id: tenantId, p_platform_id: platformId }, // Pass platformId
         }),
       });
 
@@ -65,7 +66,7 @@ export const useTenantSocialNetworks = (tenantIdParam?: string) => {
       }
       return json as TenantSocialNetwork[];
     },
-    enabled: !!tenantId && !!session,
+    enabled: !!tenantId && !!platformId && !!session, // Add platformId
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 };
@@ -74,10 +75,11 @@ export const useAddTenantSocialNetwork = (tenantIdParam?: string) => {
   const queryClient = useQueryClient();
   const { session, currentAssignment } = useAuth();
   const tenantId = tenantIdParam || currentAssignment?.tenant_id;
+  const platformId = currentAssignment?.platform_id; // Get platformId
 
   return useMutation<TenantSocialNetwork, Error, { network: SocialNetworkType; url: string }>({
     mutationFn: async (newSocial: { network: SocialNetworkType; url: string }) => {
-      if (!tenantId) throw new Error("Tenant ID not available.");
+      if (!tenantId || !platformId) throw new Error("Tenant ID or Platform ID not available."); // Add platformId check
       if (!session) throw new Error("Session not available.");
 
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/tenant-actions`, {
@@ -88,7 +90,7 @@ export const useAddTenantSocialNetwork = (tenantIdParam?: string) => {
         },
         body: JSON.stringify({
           action: 'add_tenant_social_network',
-          payload: { p_tenant_id: tenantId, ...newSocial },
+          payload: { p_tenant_id: tenantId, p_platform_id: platformId, ...newSocial }, // Pass platformId
         }),
       });
 
@@ -99,7 +101,7 @@ export const useAddTenantSocialNetwork = (tenantIdParam?: string) => {
       return json as TenantSocialNetwork;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tenantSocialNetworks', tenantId] });
+      queryClient.invalidateQueries({ queryKey: ['tenantSocialNetworks', tenantId, platformId] }); // Add platformId
     },
   });
 };
@@ -108,10 +110,11 @@ export const useUpdateTenantSocialNetwork = (tenantIdParam?: string) => {
   const queryClient = useQueryClient();
   const { session, currentAssignment } = useAuth();
   const tenantId = tenantIdParam || currentAssignment?.tenant_id;
+  const platformId = currentAssignment?.platform_id; // Get platformId
 
   return useMutation<TenantSocialNetwork, Error, { id: string; network: SocialNetworkType; url: string }>({
     mutationFn: async (updatedSocial: { id: string; network: SocialNetworkType; url: string }) => {
-      if (!tenantId) throw new Error("Tenant ID not available.");
+      if (!tenantId || !platformId) throw new Error("Tenant ID or Platform ID not available."); // Add platformId check
       if (!session) throw new Error("Session not available.");
 
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/tenant-actions`, {
@@ -122,7 +125,7 @@ export const useUpdateTenantSocialNetwork = (tenantIdParam?: string) => {
         },
         body: JSON.stringify({
           action: 'update_tenant_social_network',
-          payload: { p_tenant_id: tenantId, ...updatedSocial },
+          payload: { p_tenant_id: tenantId, p_platform_id: platformId, ...updatedSocial }, // Pass platformId
         }),
       });
 
@@ -133,7 +136,7 @@ export const useUpdateTenantSocialNetwork = (tenantIdParam?: string) => {
       return json as TenantSocialNetwork;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tenantSocialNetworks', tenantId] });
+      queryClient.invalidateQueries({ queryKey: ['tenantSocialNetworks', tenantId, platformId] }); // Add platformId
     },
   });
 };
@@ -142,10 +145,11 @@ export const useDeleteTenantSocialNetwork = (tenantIdParam?: string) => {
   const queryClient = useQueryClient();
   const { session, currentAssignment } = useAuth();
   const tenantId = tenantIdParam || currentAssignment?.tenant_id;
+  const platformId = currentAssignment?.platform_id; // Get platformId
 
   return useMutation<void, Error, string>({
     mutationFn: async (id: string) => {
-      if (!tenantId) throw new Error("Tenant ID not available.");
+      if (!tenantId || !platformId) throw new Error("Tenant ID or Platform ID not available."); // Add platformId check
       if (!session) throw new Error("Session not available.");
 
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/tenant-actions`, {
@@ -156,7 +160,7 @@ export const useDeleteTenantSocialNetwork = (tenantIdParam?: string) => {
         },
         body: JSON.stringify({
           action: 'delete_tenant_social_network',
-          payload: { p_tenant_id: tenantId, id },
+          payload: { p_tenant_id: tenantId, p_platform_id: platformId, id }, // Pass platformId
         }),
       });
 
@@ -166,11 +170,10 @@ export const useDeleteTenantSocialNetwork = (tenantIdParam?: string) => {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tenantSocialNetworks', tenantId] });
+      queryClient.invalidateQueries({ queryKey: ['tenantSocialNetworks', tenantId, platformId] }); // Add platformId
     },
   });
 };
-
 // --- Branch Social Networks Hooks ---
 
 export const useBranchSocialNetworks = (branchId?: string) => {

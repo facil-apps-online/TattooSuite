@@ -17,6 +17,8 @@ import { cn } from '@/lib/utils';
 import { MultiSelect } from "@/components/ui/MultiSelect";
 import { ProjectCategoryDialog } from "./ProjectCategoryDialog";
 
+import { ProjectImageGallery } from "./ProjectImageGallery";
+
 // Schema definitions
 const sessionSchema = z.object({
   id: z.string().uuid().optional(),
@@ -155,6 +157,15 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, isSav
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {project?.id && (
+        <div className="space-y-2">
+          <Label>Imágenes del Proyecto</Label>
+          <p className="text-sm text-muted-foreground">
+            Sube y gestiona las imágenes para este proyecto. La primera imagen que subas será la principal.
+          </p>
+          <ProjectImageGallery projectId={project.id} />
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Nombre del Proyecto</Label>

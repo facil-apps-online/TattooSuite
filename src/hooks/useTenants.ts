@@ -37,35 +37,40 @@ export interface Tenant {
 // --- React Query Hooks for Tenant Users ---
 
 // GET the current user's tenant data
-const fetchTenantById = async (tenantId: string): Promise<Tenant> => {
-  const { data, error } = await supabase
-    .from('tenants')
-    .select(`
-      *,
-      countries (
-        name,
-        iso_code
-      )
-    `)
-    .eq('id', tenantId)
-    .single();
+const fetchTenantById = async (tenantId: string, platformId: string): Promise<Tenant> => {
+  const response = await fetch('/functions/v1/tenant-actions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+    },
+    body: JSON.stringify({
+      action: 'get-tenant-details',
+      payload: { tenantId, platformId },
+    }),
+  });
+
+  const { data, error } = await response.json();
 
   if (error) {
     throw new Error(error.message);
   }
-  return data as Tenant;
+  return data.tenant as Tenant;
 };
 
 export const useTenantById = (tenantId: string) => {
+  const { currentAssignment } = useAuth();
+  const platformId = currentAssignment?.platform_id;
+
   return useQuery<Tenant, Error>({
-    queryKey: ['tenant', tenantId],
-    queryFn: () => fetchTenantById(tenantId),
-    enabled: !!tenantId, // Only run the query if tenantId is available
+    queryKey: ['tenant', tenantId, platformId],
+    queryFn: () => fetchTenantById(tenantId!, platformId!),
+    enabled: !!tenantId && !!platformId, // Only run the query if tenantId and platformId are available
   });
 };
 
 // UPDATE the current user's tenant data
-const updateTenant = async ({ id, ...values }: Partial<Tenant> & { id: string }): Promise<Tenant> => {
+const updateTenant = async ({ id, platformId, ...values }: Partial<Tenant> & { id: string; platformId: string }): Promise<Tenant> => {
   const response = await fetch('/functions/v1/tenant-actions', {
     method: 'POST',
     headers: {
@@ -74,7 +79,7 @@ const updateTenant = async ({ id, ...values }: Partial<Tenant> & { id: string })
     },
     body: JSON.stringify({
       action: 'update_tenant',
-      payload: { id, values },
+      payload: { id, platformId, values },
     }),
   });
 
@@ -88,13 +93,14 @@ const updateTenant = async ({ id, ...values }: Partial<Tenant> & { id: string })
   
 export const useUpdateTenant = () => {
   const queryClient = useQueryClient();
-  const { tenantId } = useAuth();
+  const { tenantId, currentAssignment } = useAuth();
+  const platformId = currentAssignment?.platform_id;
 
-  return useMutation<Tenant, Error, Partial<Tenant> & { id: string }>({
+  return useMutation<Tenant, Error, Partial<Tenant> & { id: string; platformId: string }>({
     mutationFn: updateTenant,
     onSuccess: (data) => {
       // Invalidate the query for the current tenant to refetch the updated data
-      queryClient.invalidateQueries({ queryKey: ['tenant', tenantId] });
+      queryClient.invalidateQueries({ queryKey: ['tenant', tenantId, platformId] });
     },
   });
 };

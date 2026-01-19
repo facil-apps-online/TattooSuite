@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useActiveSubscriptionPlans } from '@/hooks/useActiveSubscriptionPlans'; // Hook corregido
+import { useActiveSubscriptionPlans } from '@/hooks/useActiveSubscriptionPlans';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabaseClient';
+import { coreSupabase } from '@/lib/supabaseClient'; // Import coreSupabase
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Check } from 'lucide-react';
@@ -17,28 +17,29 @@ const SubscriptionPlans = () => {
   // Agrupar precios por plan y filtrar por el país del usuario
   const plansForUserCountry = useMemo(() => {
     if (!allPlans || !user?.country_id) return [];
-    
-    // La RPC devuelve una fila por cada combinación de plan y país,
-    // así que solo necesitamos filtrar por el país del usuario.
     return allPlans.filter(price => price.country_id === user.country_id);
   }, [allPlans, user?.country_id]);
 
-  const handleSelectPlan = async (planPriceId: string) => {
+  const handleSelectPlan = async (planId: string) => {
     setIsRedirecting(true);
     setError(null);
 
-    if (!user?.tenant_id) {
-      setError('No se pudo identificar al tenant. Por favor, inicia sesión de nuevo.');
+    if (!user?.tenant_id || !user?.id) {
+      setError('No se pudo identificar al usuario o tenant. Por favor, inicia sesión de nuevo.');
       setIsRedirecting(false);
       return;
     }
 
     try {
-      const { data, error: functionError } = await supabase.functions.invoke('create-subscription-checkout', {
+      // Call Core Function 'wompi-generate-checkout' directly
+      const { data, error: functionError } = await coreSupabase.functions.invoke('wompi-generate-checkout', {
         body: {
           tenantId: user.tenant_id,
-          planPriceId,
+          userId: user.id,
+          planId: planId, // Send planId for backend calculation
           redirectUrl: `${window.location.origin}/payment-success`,
+          // currency is optional, defaults to COP in backend if not sent, 
+          // or we can send it from the plan details if available.
         },
       });
 
@@ -93,7 +94,7 @@ const SubscriptionPlans = () => {
               <div className="mt-auto">
                 <Button
                   className="w-full"
-                  onClick={() => handleSelectPlan(plan.price_id)}
+                  onClick={() => handleSelectPlan(plan.plan_id)} 
                   disabled={isRedirecting}
                 >
                   {isRedirecting ? 'Procesando...' : 'Seleccionar Plan'}

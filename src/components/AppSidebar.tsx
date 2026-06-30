@@ -158,8 +158,6 @@ export function AppSidebar({ menuConfig, homeUrl = "/", title = "Tattoo Suite", 
   const { tenant, currentAssignment } = useAuth();
   const userRole = currentAssignment?.role_name;
 
-  console.log('[AppSidebar] Tenant object from useAuth:', tenant);
-
   const { displayUrl: tenantLogoUrl, isLoading: isLogoLoading } = useGoogleDriveImage(tenant?.tenant?.logo_url);
 
   const handleLinkClick = () => {

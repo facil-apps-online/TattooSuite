@@ -27,11 +27,6 @@ const ProjectDetailContent = ({ clientProjectId }: { clientProjectId: string }) 
     const { mutate: cancelSession, isPending: isCancelling } = useCancelProjectSession();
     const { mutate: reactivateSession, isPending: isReactivating } = useReactivateProjectSession();
 
-    React.useEffect(() => {
-        if (details) {
-            console.log("Project Details Data:", details);
-        }
-    }, [details]);
 
     if (isLoading) return <div className="p-4"><p>Cargando detalles...</p></div>;
     if (error) return <div className="p-4 text-red-500"><p>Error: {error.message}</p></div>;

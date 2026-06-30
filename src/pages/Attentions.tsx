@@ -863,7 +863,6 @@ const AttentionCard = ({ attention, formatPrice, onEdit, onOpenPaymentDialog, on
   const canBeDeleted = attention.status === 'Pendiente' || attention.status === 'Confirmada';
 
   const handleUpdateStatus = (newStatus: 'Finalizada' | 'Pagada') => {
-    console.log("!!! handleUpdateStatus in AttentionCard was called with status:", newStatus);
     updateStatusMutation.mutate({ attentionId: attention.id, newStatus });
   };
 
@@ -1116,7 +1115,6 @@ const AttentionCard = ({ attention, formatPrice, onEdit, onOpenPaymentDialog, on
                     ))}
                     {fillableTemplates.map(template => (
                         <Button key={template.id} variant="default" size="sm" onClick={() => {
-                            console.log("!!! 'Llenar' button clicked. Calling onOpenFillFormDialog...");
                             onOpenFillFormDialog(template, attention);
                         }}>
                             Llenar: {template.name}

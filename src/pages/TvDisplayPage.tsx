@@ -125,7 +125,6 @@ const TvDisplayPage: React.FC = () => {
             filter: `id=eq.${tvDisplay.id}`,
           },
           (payload) => {
-            console.log('TV Display updated!', payload);
             setTvDisplay(payload.new as TvDisplay);
           }
         )

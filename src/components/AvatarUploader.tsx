@@ -86,7 +86,6 @@ export const AvatarUploader = React.memo(({
 
       // If an old avatar was replaced, delete it from Google Drive
       if (updateData.oldAvatarFileId) {
-        console.log(`Deleting old avatar file: ${updateData.oldAvatarFileId}`);
         const { error: deleteError } = await supabase.functions.invoke('google-drive-delete', {
           body: { 
             fileId: updateData.oldAvatarFileId, 

@@ -1,119 +1,121 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabaseClient';
+import { coreSupabase } from '@/lib/supabaseClient';
+import { useToast } from '@/hooks/use-toast';
+import type { Database } from '@/types/supabase';
 
-export interface SubscriptionPlan {
-  id: string;
-  name: string;
-  description: string | null;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  billing_frequency_months: number;
-  display_order: number;
-}
+type SubscriptionPlan = Database['public']['Tables']['subscription_plans']['Row'];
 
-// GET all plans
-const fetchSubscriptionPlans = async (): Promise<SubscriptionPlan[]> => {
-  const { data, error } = await supabase
-    .from('subscription_plans')
-    .select('*')
-    .order('display_order', { ascending: true });
+const fetchSubscriptionPlans = async (platformId: string): Promise<SubscriptionPlan[]> => {
+  const { data, error } = await coreSupabase.functions.invoke('core-actions', {
+    body: { action: 'get_subscription_plans_by_platform', payload: { platformId } },
+  });
+
+  if (error) {
+    console.error('Error fetching subscription plans:', error);
+    throw new Error(error.message);
+  }
+
+  return data || [];
+};
+
+const fetchSubscriptionPlanById = async (id: string): Promise<SubscriptionPlan | null> => {
+  const { data, error } = await coreSupabase.functions.invoke('core-actions', {
+    body: { action: 'get_subscription_plan_by_id', payload: { planId: id } },
+  });
 
   if (error) throw new Error(error.message);
+
+  return (data as SubscriptionPlan) || null;
+};
+
+const createSubscriptionPlan = async (
+  plan: Omit<SubscriptionPlan, 'id' | 'created_at' | 'updated_at'>
+): Promise<SubscriptionPlan> => {
+  const { data, error } = await coreSupabase.from('subscription_plans').insert(plan).select().single();
+
+  if (error) throw new Error(error.message);
+
   return data;
 };
 
-export const useSubscriptionPlans = () => {
-  return useQuery<SubscriptionPlan[], Error>({
-    queryKey: ['subscription_plans'],
-    queryFn: fetchSubscriptionPlans,
-  });
-};
-
-// GET plan by ID
-const fetchSubscriptionPlanById = async (id: string): Promise<SubscriptionPlan> => {
-  const { data, error } = await supabase
+const updateSubscriptionPlan = async (
+  id: string,
+  updates: Partial<SubscriptionPlan>
+): Promise<SubscriptionPlan> => {
+  const { data, error } = await coreSupabase
     .from('subscription_plans')
-    .select('*')
+    .update(updates)
     .eq('id', id)
-    .single();
-
-  if (error) throw new Error(error.message);
-  return data;
-};
-
-export const useSubscriptionPlanById = (id: string) => {
-  return useQuery<SubscriptionPlan, Error>({
-    queryKey: ['subscription_plan', id],
-    queryFn: () => fetchSubscriptionPlanById(id),
-    enabled: !!id,
-  });
-};
-
-// CREATE plan
-const createSubscriptionPlan = async (plan: Omit<SubscriptionPlan, 'id' | 'created_at' | 'updated_at'>): Promise<SubscriptionPlan> => {
-  const { data, error } = await supabase
-    .from('subscription_plans')
-    .insert([plan])
     .select()
     .single();
 
   if (error) throw new Error(error.message);
+
   return data;
 };
 
-export const useCreateSubscriptionPlan = () => {
+const deleteSubscriptionPlan = async (id: string): Promise<void> => {
+  const { error } = await coreSupabase.from('subscription_plans').delete().eq('id', id);
+
+  if (error) throw new Error(error.message);
+};
+
+export const useSubscriptionPlans = (platformId: string) => {
   const queryClient = useQueryClient();
-  return useMutation<SubscriptionPlan, Error, Omit<SubscriptionPlan, 'id' | 'created_at' | 'updated_at'>>({
+  const { toast } = useToast();
+
+  const listQuery = useQuery<SubscriptionPlan[], Error>({
+    queryKey: ['subscription_plans', platformId],
+    queryFn: () => fetchSubscriptionPlans(platformId),
+    enabled: !!platformId,
+  });
+
+  const getByIdQuery = (id: string) =>
+    useQuery<SubscriptionPlan | null, Error>({
+      queryKey: ['subscription_plan', id],
+      queryFn: () => fetchSubscriptionPlanById(id),
+      enabled: !!id,
+    });
+
+  const createMutation = useMutation({
     mutationFn: createSubscriptionPlan,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscription_plans'] });
+      toast({ title: 'Plan Creado', description: 'El plan ha sido creado exitosamente.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });
-};
 
-// UPDATE plan
-const updateSubscriptionPlan = async ({ id, ...plan }: Partial<SubscriptionPlan>): Promise<SubscriptionPlan> => {
-  const { data, error } = await supabase
-    .from('subscription_plans')
-    .update(plan)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) throw new Error(error.message);
-  return data;
-};
-
-export const useUpdateSubscriptionPlan = () => {
-  const queryClient = useQueryClient();
-  return useMutation<SubscriptionPlan, Error, Partial<SubscriptionPlan>>({
-    mutationFn: updateSubscriptionPlan,
-    onSuccess: (data) => {
+  const updateMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<SubscriptionPlan> }) =>
+      updateSubscriptionPlan(id, updates),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscription_plans'] });
-      queryClient.invalidateQueries({ queryKey: ['subscription_plan', data.id] });
+      toast({ title: 'Plan Actualizado', description: 'El plan ha sido actualizado exitosamente.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });
-};
 
-// DELETE plan
-const deleteSubscriptionPlan = async (id: string): Promise<void> => {
-  const { error } = await supabase
-    .from('subscription_plans')
-    .delete()
-    .eq('id', id);
-
-  if (error) throw new Error(error.message);
-};
-
-export const useDeleteSubscriptionPlan = () => {
-  const queryClient = useQueryClient();
-  return useMutation<void, Error, string>({
+  const deleteMutation = useMutation({
     mutationFn: deleteSubscriptionPlan,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscription_plans'] });
+      toast({ title: 'Plan Eliminado', description: 'El plan ha sido eliminado exitosamente.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });
-};
 
+  return {
+    subscriptionPlans: listQuery,
+    getById: getByIdQuery,
+    createPlan: createMutation,
+    updatePlan: updateMutation,
+    deletePlan: deleteMutation,
+  };
+};

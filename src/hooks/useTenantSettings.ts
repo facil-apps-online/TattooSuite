@@ -8,7 +8,7 @@ export interface TenantSettingsData {
 
 // GET tenant-specific settings
 const fetchTenantSettings = async (tenantId: string, platformId: string): Promise<TenantSettingsData> => {
-  const response = await fetch('/functions/v1/tenant-actions', {
+  const response = await fetch(`${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/tenant-actions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -56,7 +56,7 @@ export const useUpdateTenantSettings = () => {
     mutationFn: async (settings) => {
       if (!tenantId || !platformId) throw new Error("Tenant ID or Platform ID is required to update tenant settings.");
 
-      const response = await fetch('/functions/v1/tenant-actions', {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/tenant-actions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -38,7 +38,7 @@ export interface Tenant {
 
 // GET the current user's tenant data
 const fetchTenantById = async (tenantId: string, platformId: string): Promise<Tenant> => {
-  const response = await fetch('/functions/v1/tenant-actions', {
+  const response = await fetch(`${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/tenant-actions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -71,7 +71,7 @@ export const useTenantById = (tenantId: string) => {
 
 // UPDATE the current user's tenant data
 const updateTenant = async ({ id, platformId, ...values }: Partial<Tenant> & { id: string; platformId: string }): Promise<Tenant> => {
-  const response = await fetch('/functions/v1/tenant-actions', {
+  const response = await fetch(`${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/tenant-actions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

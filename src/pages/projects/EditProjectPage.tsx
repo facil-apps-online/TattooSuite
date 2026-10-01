@@ -111,12 +111,12 @@ const EditProjectPage = () => {
 
               <TabsContent value="images">
                 <Card>
-                  <CardHeader className="flex flex-row items-center justify-between">
+                  <CardHeader className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                     <CardTitle>Imágenes del Proyecto</CardTitle>
                     <ManageProjectImagesDialog
                       projectId={project.id}
                       projectName={project.name}
-                      trigger={<Button variant="outline">Gestionar Imágenes</Button>}
+                      trigger={<Button variant="outline"><span className="hidden sm:inline">Gestionar Imágenes</span></Button>}
                     />
                   </CardHeader>
                   <CardContent>

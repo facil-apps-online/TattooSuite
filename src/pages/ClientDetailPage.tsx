@@ -445,10 +445,10 @@ export default function ClientDetailPage() {
             </TabsContent>
             <TabsContent value="family" className="mt-4">
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                   <CardTitle>Miembros Familiares</CardTitle>
                   <ClientDialog parentClientId={client?.id} initialBranchIds={selectedBranchIds}>
-                    <Button size="sm" type="button"><PlusCircle className="w-4 h-4 mr-2" />Añadir Familiar</Button>
+                    <Button size="sm" type="button"><PlusCircle className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">Añadir Familiar</span></Button>
                   </ClientDialog>
                 </CardHeader>
                 <CardContent>
@@ -561,11 +561,11 @@ export default function ClientDetailPage() {
             <TabsContent value="addresses" className="mt-4">
               <Card>
                 <CardHeader>
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                     <CardTitle>Direcciones Adicionales</CardTitle>
                     <Button type="button" variant="outline" size="default" onClick={() => setIsAddingAddress(!isAddingAddress)}>
                       <Plus className="h-4 w-4" />
-                      <span className="ml-2">Añadir Dirección</span>
+                      <span className="hidden sm:inline sm:ml-2">Añadir Dirección</span>
                     </Button>
                   </div>
                 </CardHeader>
@@ -577,12 +577,12 @@ export default function ClientDetailPage() {
             <TabsContent value="contacts" className="mt-4">
               <Card>
                 <CardHeader>
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                     <CardTitle>Contactos Adicionales</CardTitle>
                     <ClientContactDialog clientId={client.id}>
                       <Button type="button" variant="outline" size="default">
                         <Plus className="h-4 w-4" />
-                        <span className="ml-2">Añadir Contacto</span>
+                        <span className="hidden sm:inline sm:ml-2">Añadir Contacto</span>
                       </Button>
                     </ClientContactDialog>
                   </div>
@@ -597,10 +597,10 @@ export default function ClientDetailPage() {
             </TabsContent>
             <TabsContent value="projects" className="mt-4">
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                   <CardTitle>Proyectos Asignados</CardTitle>
                   <AssignProjectDialog client={client} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['client_projects', id] })}>
-                    <Button size="sm"><PlusCircle className="w-4 h-4 mr-2" />Asignar Proyecto</Button>
+                    <Button size="sm"><PlusCircle className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">Asignar Proyecto</span></Button>
                   </AssignProjectDialog>
                 </CardHeader>
                 <CardContent>

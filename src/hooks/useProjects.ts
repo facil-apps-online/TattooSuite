@@ -200,6 +200,7 @@ export const useUploadProjectImage = () => {
       const fileBase64 = await convertFileToBase64(file);
       const { data, error } = await supabase.from('treatment_images').insert({
         tenant_id: currentAssignment.tenant_id,
+        platform_id: import.meta.env.VITE_PLATFORM_ID,
         treatment_id: projectId,
         image_url: file.name, // Assuming image_url will be set by the google-drive-upload function
         is_primary: false, // Default to false
